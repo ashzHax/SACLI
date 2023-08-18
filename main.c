@@ -12,7 +12,8 @@
 
 // modes
 enum {
-	ADD,
+	INVALID = -1,
+	ADD = 0,
 	REMOVE,
 	SHOW,
 	COMMENT,
@@ -111,7 +112,7 @@ unsigned char chk_str_diff(char *a, char *b)
 	return (unsigned char)0;
 }
 
-int opt_parse(int argc, char** argv)
+int option_parse(int argc, char** argv)
 {
 	int len;
 
@@ -136,11 +137,14 @@ int opt_parse(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
-	int ret = 0;
+	int mode = MODE_INVALID;
 
-	ret = opt_parse(argc, argv);
-	if(ret < 0) {
-		return ret;
+	mode = option_parse(argc, argv);
+	switch(mode) {
+		case ADD:
+		{
+			break;
+		}
 	}
 
 	printf("basic compile test for project initialization\n");
