@@ -3,18 +3,21 @@
 
 COMPILER=gcc
 FLAGS=-Wall -Werror -I -g
+DEFINES=-DMODE_DEBUG
 LIBS:=
 
-V_AUTHORS=ashz leegh
+V_AUTHORS=ashz
 
-S_OBJECT=main.o
+S_OBJECT=\
+         global.o \
+         main.o
 S_OUTPUT_NAME=svm
 
 CONSTANT_VARIABLES=-DPROG_NAME=$(S_OUTPUT_NAME) \
                    -DAUTHOR=$(V_AUTHORS)
 
 %.o : %.c $(G_DEPS)
-	$(COMPILER) -c -o $@ $< $(FLAGS) 
+	$(COMPILER) -c -o $@ $< $(FLAGS) $(DEFINES)
 
 $(S_OUTPUT_NAME): $(S_OBJECT)
 	$(COMPILER) -o $(S_OUTPUT_NAME) $(S_OBJECT) $(LIBS)
