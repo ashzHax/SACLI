@@ -10,8 +10,11 @@
 
 struct command_info cmd;
 
-// string list of command modes, for sifting user input
-// list order must match enum defined in global.h
+/*
+ * note
+ * string list of command modes, for sifting user input
+ * list order must match enum defined in global.h
+ */
 const char* mode_list[MODE_MAX] = {
 	"add",
 	"remove",
@@ -28,30 +31,13 @@ const char* mode_list[MODE_MAX] = {
 
 /*
  * description
- * Checks if the variable 's' matches one of the action strings
- */
-static int contains_action_string(char *s)
-{
-	int i = 0;
-
-	for (i=0; i<MODE_MAX; i++) {
-		if (_strfcmp(s, mode_list[i]) == 0) {
-			cmd.mode = i;
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-/*
- * description
  * Finds the action argument, then divide option and action
  * arguments
  */
 static void option_parse(int argc, char** argv)
 {
 	int i = 0;
+	int j = 0;
 	char argt[MAX_ARG_LEN] = {0};
 	int idx_action = 0;
 
@@ -64,9 +50,19 @@ static void option_parse(int argc, char** argv)
 		// less efficient, since doing it this way makes 1024 bytes be written
 		// all the time, but this function only runs once at init
 		_strcpy(argv[i], argt, MAX_ARG_LEN); 
+		_strlow(argt);
+		
+		d("checking [%s]...", argt);
 
 		// finding action parameter
-		if (contains_action_string(_strlow(argt))) {
+		for (j=0; j<MODE_MAX; j++) {
+			if (_strfcmp(argt, mode_list[j]) == 0) {
+				cmd.mode = j;
+				break;
+			}
+		}
+
+		if (cmd.mode != MODE_INVALID) {
 			cmd.act_arg_cnt = argc - i - 1; // cannot go below 0 (in theory)
 			idx_action = i;
 			break;
@@ -88,33 +84,130 @@ static void option_parse(int argc, char** argv)
 	}
 }
 
+/*
+ * description
+ * Finds the root directory of the current SVN repository
+ *
+ * return
+ * '-1' if the current path is not a valid SVN repository (program should exit)
+ * '0' on normal
+ */
+static int find_root_dir(char **buf)
+{
+	FILE *p;
+
+	*buf = (char*)malloc(sizeof(char)*MAX_PATH_LEN);
+
+	if (buf == NULL) {
+		return EXIT_ERROR;
+	}
+
+	p = popen("svn info 2> /dev/null | grep \"Working Copy Root Path\" | awk \'{print $5}\'", "r");
+
+	if(p) {
+		fgets(*buf, MAX_PATH_LEN, p);
+		pclose(p);
+	}
+
+	if(_strlen(*buf) <= 0) {
+		return EXIT_NOT_IN_SVN_REPO;
+	}
+
+	return 0;
+}
+
+/*
+ * description
+ * Show the user how to use this amazing command
+ */
 static void help()
 {
 	out("usage: svm [options] [action] [...]");
 }
 
-static void init()
+/*
+ * description
+ * The initiation function.
+ * Not much, currently. But you wait.
+ */
+static int init()
 {
+	int r = 0; // return value
+
 	cmd.mode = MODE_INVALID;
+
+	r = find_root_dir(&cmd.root_path);
+	if (r < 0) {
+		return r;
+	}
+	d("root_path: [%s]", cmd.root_path);
+
+	return r;
 }
 
+/*
+ * description
+ * The de-initiation function.
+ * Very important if you don't want un-managed memory
+ * lingering in your system.
+ */
 static void deinit()
 {
 	free(cmd.opt_arg);
 	free(cmd.act_arg);
+
+	free(cmd.root_path);
+
+	d("de-initalized all variables");
 }
 
+/*
+ * Received the 'add' action command, let's go.
+ * 
+ * description
+ * Handler for the 'add' action command.
+ *
+ * TODO: need to check if arguments are valid
+ */
+void add(struct command_info* c)
+{
+	// add to file (add to svn when doing actual commit
+#if 0
+	// basically, need json handler about now ^^;
+
+	if (option_is_bad) {
+		exit_error_all_the_shebang;
+	}
+
+	while(action_arg_cnt) {
+		if(check_action_argument_path_valid(arg[i]) = good){
+			add_path_to_group_array(group, arg);
+		}
+	}
+#endif
+}
+
+
+/*
+ * description
+ * It's the most important function.
+ * Thats it.
+ */
 int main(int argc, char** argv)
 {
-	int exit_code;
+	int exit_code = EXIT_NORMAL;
 
-	init();
+	exit_code = init();
+	if (exit_code < 0) {
+		goto END_PROG;
+	}
 
 	option_parse(argc, argv);
 
 	switch(cmd.mode) {
 		case MODE_ADD:
 		{
+			add(&cmd);
 			d("running \"ADD\" function");
 			break;
 		}
@@ -126,8 +219,22 @@ int main(int argc, char** argv)
 		}
 	}
 
+END_PROG:
 	deinit();
-	out("Finished. [^.^]");
+
+	switch(exit_code) {
+		case EXIT_NOT_IN_SVN_REPO: {
+			errout("You are not inside a SVN repository! [-.-]");
+			break;
+		}
+		case EXIT_NORMAL: {
+			out("Finished. [^.^][%d]", exit_code);
+			break;
+		}
+		default: {
+			out("Unknown exit code.");
+		}
+	}
 
 	return exit_code;
 }

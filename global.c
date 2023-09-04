@@ -108,7 +108,7 @@ char* _strcpy(const char *s, char *d, size_t t)
 }
 
 /* 
- * personal strncmp()
+ * personal strncmp(), but better
  *
  * description
  * A full compare of string, even the length.
@@ -142,6 +142,51 @@ int _strfcmp(const char *a, const char *b)
 	}
 
 	for (i=0; i<(int)a_len; i++) {
+		if (a[i] != b[i]) {
+			return i+1;
+		}
+	}
+
+	return 0;
+}
+
+/* 
+ * personal strncmp()
+ *
+ * description
+ * A numbered compare of string.
+ *
+ * return
+ * Returns the difference count (in length), or the (index+1) from
+ * which the difference starts
+ * -1: Invalid parameter values
+ * 0 : If 'a' and 'b' are the same string
+ * x : If 'a' and 'b' are NOT the same string
+ */
+int _strncmp(const char *a, const char *b, size_t t)
+{
+	int i;
+	int a_len, b_len;
+
+	if (a == NULL || b == NULL || t <= 0) {
+		return -1;
+	}
+
+	a_len = _strlen(a);
+	b_len = _strlen(b);
+
+	// invalid amount of bytes to check 't' amount of characters
+	if (a_len > b_len) {
+		if (t > b_len) {
+			return -1;
+		}
+	} else {
+		if (t > a_len) {
+			return -1;
+		}
+	}
+
+	for (i=0; i<(int)t; i++) {
 		if (a[i] != b[i]) {
 			return i+1;
 		}
@@ -207,9 +252,6 @@ void debug_log(const char* _f, int l, const char* s, ...)
  *
  * description
  * For printing information to user.
- *
- * TODO
- * - Add time information
  */
 void out(const char* s, ...)
 {
@@ -229,6 +271,34 @@ void out(const char* s, ...)
 	va_end(list);
 
 	printf("%s\n", log);
+
+	return;
+}
+
+/*
+ * Error output log function
+ *
+ * description
+ * For printing error information to user.
+ */
+void errout(const char* s, ...)
+{
+	va_list list;
+	time_t t = time(NULL);
+	struct tm mt = *localtime(&t);
+	char log[MAX_LOG_SIZE] = {0};
+	int p = 0;
+
+	p = snprintf(log, sizeof(log), "%s[%04d/%02d/%02d][%02d:%02d:%02d] ",
+			_F_BRIGHT_RED,
+			mt.tm_year+1900, mt.tm_mon+1, mt.tm_mday,
+			mt.tm_hour, mt.tm_min, mt.tm_sec);
+
+	va_start(list, s);
+	vsnprintf(log+p, sizeof(log)-p, s, list);
+	va_end(list);
+
+	fprintf(stderr, "%s\n", log);
 
 	return;
 }
