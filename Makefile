@@ -1,34 +1,71 @@
 # by     : ashz
 # reason : compiling SACLI code 
-
-COMPILER=gcc
-FLAGS=-Wall -Werror -I -g
+AUTHORS=ashz
 DEFINES=-DMODE_DEBUG
-LIBS:=
 
-V_AUTHORS=ashz
+INCLUDE_DIR=$(shell pwd)/include
+LIB_DIR=$(shell pwd)/lib
+LIBS:=-ljansson
 
-S_OBJECT=\
-         global.o \
-         main.o
-S_OUTPUT_NAME=svm
+CC=gcc
+FLAGS=-Wall -Werror -I -g
 
-CONSTANT_VARIABLES=-DPROG_NAME=$(S_OUTPUT_NAME) \
-                   -DAUTHOR=$(V_AUTHORS)
+TARGET=svm
+OBJ=\
+    global.o \
+    main.o
+
+CONSTANT_VARIABLES=\
+                   -DPROG_NAME=$(TARGET) \
+                   -DAUTHOR=$(AUTHORS)
+
+all: create_dir install_lib $(TARGET)
+
+create_dir:
+	mkdir -p $(LIB_DIR)
+	mkdir -p $(INCLUDE_DIR)
+
+# Github repository: https://github.com/akheron/jansson
+# Use version: Release 2.14
+install_lib_jansson:
+	cd $(LIB_DIR); \
+	[ -e ./jansson-2.14 ] || { \
+		[ -e ./jansson-2.14.tar.gz ] && rm -rf jansson-2.14.tar.gz; \
+		wget https://github.com/akheron/jansson/releases/download/v2.14/jansson-2.14.tar.gz; \
+		tar -zxvf jansson-2.14.tar.gz; \
+	}; \
+	cd jansson-2.14; \
+	./configure; \
+	make; \
+	cp ./src/.libs/libjansson.so $(LIB_DIR)/; \
+	cp ./src/*.h $(INCLUDE_DIR)/
+
+clean_lib_jansson:
+	cd $(LIB_DIR)/jansson-2.14; \
+	make clean
+
+install_lib: \
+	install_lib_jansson
+	@echo -e "\n\n\n\n\nFinished installing all libraries!\n\n\n\n\n"
+
+clean_lib: \
+	clean_lib_jansson
+	@echo -e "\n\n\n\n\nFinished cleaning all libraries!\n\n\n\n\n"
 
 %.o : %.c $(G_DEPS)
-	$(COMPILER) -c -o $@ $< $(FLAGS) $(DEFINES)
+	$(CC) -c -o $@ $< $(FLAGS) $(DEFINES)
 
-$(S_OUTPUT_NAME): $(S_OBJECT)
-	$(COMPILER) -o $(S_OUTPUT_NAME) $(S_OBJECT) $(LIBS)
+$(TARGET): $(OBJ)
+	cp ./*.h $(INCLUDE_DIR)
+	$(CC) -o $(TARGET) $(OBJ) -L$(LIB_DIR) $(LIBS) -I$(INCLUDE_DIR)
 
 install:
 	mkdir -p /usr/bin/
-	sudo cp ./$(S_OUTPUT_NAME) /usr/bin/$(S_OUTPUT_NAME)
+	sudo cp ./$(TARGET) /usr/bin/$(TARGET)
 
 uninstall:
-	sudo rm /usr/bin/$(S_OUTPUT_NAME)
+	sudo rm /usr/bin/$(TARGET)
 
-clean:
-	rm -rf $(S_OBJECT)
-	rm -rf $(S_OUTPUT_NAME)
+clean: clean_lib
+	rm -rf $(OBJ)
+	rm -rf $(TARGET)
