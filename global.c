@@ -8,8 +8,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
-#include "global.h"
-#include "color.h"
+#include <global.h>
+#include <color.h>
 
 /* 
  * personal strlen() 

@@ -8,7 +8,7 @@ LIB_DIR=$(shell pwd)/lib
 LIBS:=-ljansson
 
 CC=gcc
-FLAGS=-Wall -Werror -I -g
+FLAGS=-Wall -Werror -g
 
 TARGET=svm
 OBJ=\
@@ -19,11 +19,14 @@ CONSTANT_VARIABLES=\
                    -DPROG_NAME=$(TARGET) \
                    -DAUTHOR=$(AUTHORS)
 
-all: create_dir install_lib $(TARGET)
+all: create_dir copy_header install_lib $(TARGET)
 
 create_dir:
 	mkdir -p $(LIB_DIR)
 	mkdir -p $(INCLUDE_DIR)
+
+copy_header:
+	cp ./*.h $(INCLUDE_DIR)
 
 # Github repository: https://github.com/akheron/jansson
 # Use version: Release 2.14
@@ -37,11 +40,18 @@ install_lib_jansson:
 	cd jansson-2.14; \
 	./configure; \
 	make; \
-	cp ./src/.libs/libjansson.so $(LIB_DIR)/; \
-	cp ./src/*.h $(INCLUDE_DIR)/
+	cp ./src/*.h $(INCLUDE_DIR)/; \
+	cp ./src/.libs/libjansson.so.4.14.0 $(LIB_DIR)/; \
+	cd ..; \
+	rm libjansson.so; \
+	rm libjansson.so.4; \
+	ln -s libjansson.so.4.14.0 libjansson.so; \
+	ln -s libjansson.so.4.14.0 libjansson.so.4
 
 clean_lib_jansson:
-	cd $(LIB_DIR)/jansson-2.14; \
+	cd $(LIB_DIR); \
+	rm libjansson.so libjansson.so.4 libjansson.so.4.14.0; \
+	cd ./jansson-2.14; \
 	make clean
 
 install_lib: \
@@ -53,11 +63,10 @@ clean_lib: \
 	@echo -e "\n\n\n\n\nFinished cleaning all libraries!\n\n\n\n\n"
 
 %.o : %.c $(G_DEPS)
-	$(CC) -c -o $@ $< $(FLAGS) $(DEFINES)
+	$(CC) -c -o $@ $< $(FLAGS) $(DEFINES) -I$(INCLUDE_DIR)
 
 $(TARGET): $(OBJ)
-	cp ./*.h $(INCLUDE_DIR)
-	$(CC) -o $(TARGET) $(OBJ) -L$(LIB_DIR) $(LIBS) -I$(INCLUDE_DIR)
+	$(CC) -o $(TARGET) $(OBJ) -L$(LIB_DIR) $(LIBS)
 
 install:
 	mkdir -p /usr/bin/

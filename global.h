@@ -1,6 +1,8 @@
 #ifndef __GLOBAL_H__
 #define __GLOBAL_H__
 
+#include <jansson.h>
+
 #define MAX_ARG_LEN					1024
 
 #define ASCII_ALPHA_UP_START		65
@@ -13,6 +15,8 @@
 #define EXIT_INVALID_OPTION_ARG		-3
 #define EXIT_INVALID_ACTION_ARG		-3
 #define EXIT_NOT_IN_SVN_REPO		-4
+#define EXIT_UNABLE_TO_CREATE_FILE	-5
+#define EXIT_UNABLE_TO_OPEN_FILE	-6
 
 #define MAX_LOG_SIZE 1024
 
@@ -38,13 +42,12 @@ enum {
 
 struct command_info {
 	int mode;
-
 	int opt_arg_cnt;		// option argument count
 	int act_arg_cnt;		// action argument count
 	const char **opt_arg;	// option arguments
 	const char **act_arg;	// action arguments
-
 	char *root_path;		// subversion root dir
+	json_t *cfg_obj;		// json object
 };
 
 // debug functions
