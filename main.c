@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/stat.h> // used in add
 #include <jansson.h>
 #include <global.h>
 
@@ -71,6 +72,14 @@ static void option_parse(int argc, char** argv)
 	for(i = 0; i < argc; i++) {
 		d("argv[%d] = %s", i, argv[i]);
 	}
+	
+	// TODO: need a better handle than this
+#if 0
+	if(argc == 1) {
+		cmd.mode = MODE_INVALID;
+		return;
+	}
+#endif
 
 	for (i=1; i<argc; i++) {
 		// less efficient, since doing it this way makes 1024 bytes be written
@@ -84,6 +93,7 @@ static void option_parse(int argc, char** argv)
 		for (j=0; j<MODE_MAX; j++) {
 			if (_strfcmp(argt, mode_list[j]) == 0) {
 				cmd.mode = j;
+				d("mode: %d", cmd.mode);
 				break;
 			}
 		}
@@ -108,6 +118,16 @@ static void option_parse(int argc, char** argv)
 		cmd.act_arg[i] = argv[idx_action+1+i];
 		d("act_args[%d] = argv[%d] = %s", i, idx_action+1+i, argv[idx_action+1+i]);
 	}
+}
+
+void add_dir_slash(char* s, size_t t) {
+	// TODO: need a better check
+	if(t <= strlen(s)+2) {
+		return;
+	}
+	
+	s[strlen(s)] = '/';
+	s[strlen(s)+1] = '\0';
 }
 
 /*
@@ -140,6 +160,8 @@ static int find_root_dir(char **buf)
 	}
 
 	remove_end_whitespaces(*buf);
+	add_dir_slash(*buf, MAX_PATH_LEN);
+	d("got a new slashhhhh [%s]", *buf);
 
 	return 0;
 }
@@ -175,7 +197,7 @@ static int create_file()
 	groups = json_object();
 
 	if (new != NULL && groups != NULL) {
-		json_object_set(groups, "default", json_object());
+		json_object_set(groups, "default", json_array());
 		json_object_set(new, "groups", groups);
 		json_dumpf(new, f, JSON_INDENT(4));
 	}
@@ -197,9 +219,9 @@ static int init()
 	FILE *cfg_file = NULL;
 	int r = 0; // return value
 	json_error_t jerr; // jansson error handling
-	char cfg_file_path[MAX_PATH_LEN] = {0};
 
 	memset(&cmd, 0x0, sizeof(struct command_info));
+	cmd.mode = MODE_INVALID;
 
 	// get root path
 	r = find_root_dir(&cmd.root_path);
@@ -209,11 +231,11 @@ static int init()
 	d("svn root path: [%s]", cmd.root_path);
 
 	// get configuration file path
-	snprintf(cfg_file_path, MAX_PATH_LEN, "%s/%s", cmd.root_path, CFG_FILE);
-	d("configuration file path: [%s]", cfg_file_path);
-
+	cmd.cfg_filepath = (char*)malloc(sizeof(char)*MAX_PATH_LEN);
+	snprintf(cmd.cfg_filepath, MAX_PATH_LEN, "%s%s", cmd.root_path, CFG_FILE);
+	d("configuration file path: [%s]", cmd.cfg_filepath);
 	// check configuration file existence, if not, create file
-	if (access(cfg_file_path, F_OK) != 0) {
+	if (access(cmd.cfg_filepath, F_OK) != 0) {
 		r = create_file();
 		if (r < 0) {
 			return r;
@@ -221,7 +243,7 @@ static int init()
 	}
 
 	// open configuration file
-	cfg_file = fopen(cfg_file_path, "r");
+	cfg_file = fopen(cmd.cfg_filepath, "r");
 	if (cfg_file == NULL) {
 		return EXIT_UNABLE_TO_OPEN_FILE;
 	}
@@ -258,10 +280,84 @@ static void deinit()
 
 	free(cmd.root_path);
 
+	// dump and output JSON object 
+#if defined(MODE_DEBUG)
+	{
+		char *test = NULL;
+
+		test = json_dumps(cmd.cfg_obj, JSON_INDENT(4));
+		d("\n%s", test);
+
+		free(test);
+	}
+#endif // MODE_DEBUG
+
 	d("de-initalized all variables");
 }
 
+static json_t* get_group(struct command_info *c)
+{
+	//char group[MAX_GROUP_NAME_LEN] = {0};
+	json_t *all = NULL;
+	json_t *group = NULL;
 
+	all = json_object_get(c->cfg_obj, "groups");
+
+	// TODO: need group name from options!
+	group = json_object_get(all, "default");
+
+	return group;
+}
+
+static void write_group(struct command_info *c, json_t *group)
+{
+	json_t *all = NULL;
+
+	// TODO: add param null check
+
+	all = json_object_get(c->cfg_obj, "groups");
+	// TODO: need group name from options!
+	json_object_set(all, "default", group);
+
+	d("dumping the root object before dumping to file");
+#if defined(MODE_DEBUG)
+	{
+		char *test = NULL;
+
+		test = json_dumps(c->cfg_obj, JSON_INDENT(4));
+		d("\n%s", test);
+
+		free(test);
+	}
+#endif // MODE_DEBUG
+
+	if(json_dump_file(c->cfg_obj, c->cfg_filepath, JSON_INDENT(4)) < 0) {
+		d("wow im so smart"); // error!
+	} else {
+		d("wow how can i be so stupiud");
+	}
+}
+
+// TODO: need to call this earlier
+char* get_current_path(char* s, size_t t)
+{
+	char tmp[MAX_PATH_LEN] = {0};
+	if(getcwd(tmp, sizeof(tmp)) != NULL) {
+		d("getcwd() : [%s]", tmp);
+
+		d("comparing two strings [%s] ?= [%s]", cmd.root_path, tmp);
+		// remove root path
+		if(_strncmp(cmd.root_path, tmp, _strlen(cmd.root_path)) == 0) {
+			d("samE!");
+			snprintf(s, t, "%s/", (tmp+_strlen(cmd.root_path)));
+		}
+
+		return s; // gets the current working directory and set the string value to s
+	} else {
+		return NULL; // return null on getcwd() error
+	}
+
+}
 
 /*
  * Received the 'add' action command, let's go.
@@ -273,9 +369,15 @@ static void deinit()
  */
 void add(struct command_info* c)
 {
-#if 0 // for next commit
 	int i = 0;
-
+	json_t *group = NULL;
+	struct stat fs;
+	char rpath[MAX_PATH_LEN] = {0};
+	char cwd[MAX_PATH_LEN] = {0};
+	int is_same = 0;
+	
+	// TODO: need to get actual group from either the -g option or default
+	group = get_group(c);
 	// add to file (add to svn when doing actual commit
 #if 0
 	// basically, need json handler about now ^^;
@@ -290,13 +392,59 @@ void add(struct command_info* c)
 		}
 	}
 #endif
-	
+
+	get_current_path(cwd, sizeof(cwd));
+	d("got path: [%s]", cwd);
+
 	for (i=0; i<c->act_arg_cnt; i++) {
-		if (access(c->act_arg[i], F_OK) == 0) {
-			
+		d("[add] checking if path exists: [%s]", c->act_arg[i]);
+		if (access(c->act_arg[i], F_OK) == 0) { // file exists
+			d("files exists! [%s]", c->act_arg[i]);
+			if (stat(c->act_arg[i], &fs) == 0) { // got file stat
+				d("got stats! [%s]", c->act_arg[i]);
+
+				// now to clean up the path received by the user.
+				// 1. remove initial './' reveiced, if it exists
+				// 2. add '/' to the end if we received a directory
+				// 3. then append to the root path
+				
+				if (c->act_arg[i][0] == '.' && c->act_arg[i][1] == '/') {
+					snprintf(rpath, sizeof(rpath), "%s%s", cwd, c->act_arg[i]+2);
+				} else {
+					snprintf(rpath, sizeof(rpath), "%s%s", cwd, c->act_arg[i]);
+				}
+				d("file path final: [%s]", rpath);
+
+				if (S_ISDIR(fs.st_mode)) { // is directory
+					if (rpath[strlen(rpath)-1] != '/') {
+						rpath[strlen(rpath)] = '/';
+					}
+				}
+
+				// check dup
+				{
+					size_t index;
+					json_t *value;
+					json_array_foreach(group, index, value) {
+						d("checking! [%d][%s] ?= [%s]", index, json_string_value(value), rpath);
+						if(_strfcmp(json_string_value(value), rpath) == 0) { // if same
+							is_same = 1;
+							break;
+						}
+					}
+				}
+
+				if(is_same) {
+					d("naaaaaaaa you ain't going anywhere bruh");
+				} else {
+					d("appending! [%s]", rpath);
+					json_array_append_new(group, json_string(rpath));
+				}
+			}
 		}
 	}
-#endif
+
+	write_group(c, group);
 }
 
 
@@ -319,8 +467,8 @@ int main(int argc, char** argv)
 	switch(cmd.mode) {
 		case MODE_ADD:
 		{
-			add(&cmd);
 			d("running \"ADD\" function");
+			add(&cmd);
 			break;
 		}
 		default:

@@ -22,6 +22,8 @@
 
 #define MAX_PATH_LEN 1024
 
+#define MAX_GROUP_NAME_LEN 128
+
 // command modes, depending on 'action' argument user input
 // enum order must match list defined in global.c
 enum {
@@ -47,6 +49,7 @@ struct command_info {
 	const char **opt_arg;	// option arguments
 	const char **act_arg;	// action arguments
 	char *root_path;		// subversion root dir
+	char *cfg_filepath;		// configuration file path
 	json_t *cfg_obj;		// json object
 };
 
