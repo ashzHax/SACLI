@@ -1,7 +1,6 @@
 # by     : ashz
 # reason : compiling SACLI code 
 AUTHORS=ashz
-DEFINES=-DMODE_DEBUG
 
 INCLUDE_DIR=$(shell pwd)/include
 LIB_DIR=$(shell pwd)/lib
@@ -13,11 +12,13 @@ FLAGS=-Wall -Werror -g
 TARGET=svm
 OBJ=\
     global.o \
+    log.o \
+    add.o \
     main.o
 
-CONSTANT_VARIABLES=\
-                   -DPROG_NAME=$(TARGET) \
-                   -DAUTHOR=$(AUTHORS)
+DEFINES=-DMODE_DEBUG \
+        -DPROG_NAME=$(TARGET) \
+        -DAUTHOR=$(AUTHORS)
 
 all: create_dir copy_header install_lib $(TARGET)
 

@@ -2,8 +2,10 @@
 #define __GLOBAL_H__
 
 #include <jansson.h>
+#include <unistd.h>
 
-#define MAX_ARG_LEN					1024
+// TODO: needs better implementation, preferably to a Makefile define
+#define CFG_FILE ".c.json"
 
 #define ASCII_ALPHA_UP_START		65
 #define ASCII_ALPHA_UP_END			90
@@ -17,11 +19,11 @@
 #define EXIT_NOT_IN_SVN_REPO		-4
 #define EXIT_UNABLE_TO_CREATE_FILE	-5
 #define EXIT_UNABLE_TO_OPEN_FILE	-6
+#define EXIT_INIT_FAILED			-7
+#define EXIT_FAILED_TO_GET_CONFIG	-8
 
-#define MAX_LOG_SIZE 1024
-
+#define MAX_ARG_LEN 1024
 #define MAX_PATH_LEN 1024
-
 #define MAX_GROUP_NAME_LEN 128
 
 // command modes, depending on 'action' argument user input
@@ -43,21 +45,16 @@ enum {
 };
 
 struct command_info {
-	int mode;
-	int opt_arg_cnt;		// option argument count
-	int act_arg_cnt;		// action argument count
-	const char **opt_arg;	// option arguments
-	const char **act_arg;	// action arguments
-	char *root_path;		// subversion root dir
-	char *cfg_filepath;		// configuration file path
-	json_t *cfg_obj;		// json object
+	int				mode;
+	int				opt_arg_cnt;		// option argument count
+	int				act_arg_cnt;		// action argument count
+	const char**	opt_arg;			// option arguments
+	const char**	act_arg;			// action arguments
+	char*			svn_root_path;		// subversion root dir
+	char*			config_path;		// configuration file path
+	json_t*			config_object;		// json object for holding configuration value
+	char			cwd[MAX_PATH_LEN];	// current working directory
 };
-
-// debug functions
-void	debug_log(const char* f, int l, const char* s, ...);
-#define	d(s, ...) debug_log(__func__, __LINE__, s, ##__VA_ARGS__)
-void out(const char* s, ...);
-void errout(const char* s, ...);
 
 // utilities functions
 size_t	_strlen(const char *s);
@@ -65,4 +62,6 @@ char*	_strlow(char *s);
 char*	_strcpy(const char *s, char *d, size_t t);
 int		_strfcmp(const char *a, const char *b);
 int		_strncmp(const char *a, const char *b, size_t t);
+void	rm_whitespace(char *s);
+char*	add_end_dir_slash(char* s, size_t max);
 #endif // __GLOBAL_H__
