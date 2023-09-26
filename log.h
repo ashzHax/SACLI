@@ -19,5 +19,6 @@ void	dump_json(const char* f, int l, json_t *obj);
 
 void	out(const char* s, ...);
 void	errout(const char* s, ...);
+void	alert(const char* s, ...);
 
 #endif // __LOG_H__

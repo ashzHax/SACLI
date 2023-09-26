@@ -19,42 +19,44 @@ static void write_group(struct command_info *c, json_t *group)
 
 	// TODO: add param null check
 
-	all = json_object_get(c->config_object, "groups");
+	all = json_object_get(c->j_config, "groups");
 	// TODO: need group name from options!
-	json_object_set(all, "default", group);
+	json_object_set(all, c->group_name, group);
 
 	d("dumping the root object before dumping to file");
 #if defined(MODE_DEBUG)
 	{
 		char *test = NULL;
 
-		test = json_dumps(c->config_object, JSON_INDENT(4));
+		test = json_dumps(c->j_config, JSON_INDENT(4));
 		d("\n%s", test);
 
 		free(test);
 	}
 #endif // MODE_DEBUG
 
-	if(json_dump_file(c->config_object, c->config_path, JSON_INDENT(4)) < 0) {
-		d("wow im so smart"); // error!
+	if(json_dump_file(c->j_config, c->config_path, JSON_INDENT(4)) < 0) {
+		d("file dump error!!!"); // error!
 	} else {
-		d("wow how can i be so stupiud");
+		d("file dump success");
 	}
 }
 
+#if 0
 static json_t* get_group(struct command_info *c)
 {
 	//char group[MAX_GROUP_NAME_LEN] = {0};
 	json_t *all = NULL;
 	json_t *group = NULL;
 
-	all = json_object_get(c->config_object, "groups");
+	all = json_object_get(c->j_config, "groups");
 
 	// TODO: need group name from options!
 	group = json_object_get(all, "default");
 
 	return group;
 }
+#endif
 
 /*
  * Received the 'add' action command, let's go.
@@ -75,7 +77,8 @@ void add(struct command_info* c)
 	if (c == NULL) return;
 	
 	// TODO: need to get actual group from either the -g option or default
-	group = get_group(c);
+	//group = get_group(c);
+	group = c->j_group;
 
 	for (i=0; i<c->act_arg_cnt; i++) {
 		d("[add] checking if path exists: [%s]", c->act_arg[i]);

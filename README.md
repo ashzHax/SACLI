@@ -16,12 +16,11 @@ Project will be built based on the svn command version 1.14.1 (r1886195)
 | add       | {file/directory}           | Add file to the commit group.                                     |
 | remove    | {file/directory}           | Remove file from the commit group.                                |
 | show      |                            | Show all files inside commit group.                               |
-| comment   |                            | Edit the commment of the commit group.                            |
+| comment   |                            | Edit the comment of the commit group.                             |
 | overwrite | {dest\_group} {src\_group} | Overwrite destination group with source group (Use with caution!) |
 | commit    |                            | Start the commit process!                                         |
 | edit      | \[all/selective\]          | Edit files inside the commit group. (Default: 'all')              |
 | help      |                            | Show help page.                                                   |
-| info      |                            | Show all files inside the commit group.                           |
 | clean     |                            | Remove all files inside the commit group specified.               |
 | revert    |                            | Revert all modifications done to the files inside group.          |
 | rollback  | {revision} {files}         | Get the specified file at specified revision.                     |
@@ -36,6 +35,5 @@ Project will be built based on the svn command version 1.14.1 (r1886195)
 | comment | -g     | Name of the target commit group. (Default: 'default') |
 | commit  | -g     | Name of the target commit group. (Default: 'default') |
 | edit    | -g     | Name of the target commit group. (Default: 'default') |
-| info    | -g     | Name of the target commit group. (Default: 'default') |
 | clean   | -g     | Name of the target commit group. (Default: 'default') |
 | revert  | -g     | Name of the target commit group. (Default: 'default') |

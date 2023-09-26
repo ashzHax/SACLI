@@ -50,12 +50,14 @@ static void help()
  * '0' on success
  * '>0' on fail (will be program exit code)
  */
-static void option_parse(struct command_info *c, int argc, char** argv)
+static int option_parse(struct command_info *c, int argc, char** argv)
 {
 	int i = 0;
 	int j = 0;
 	char argt[MAX_ARG_LEN] = {0};
 	int act = 0;
+	// TODO: check naming if its good
+	json_t *group_list = NULL;
 
 	for (i=1; i<argc; i++) {
 		_strcpy(argv[i], argt, MAX_ARG_LEN); 
@@ -79,24 +81,90 @@ static void option_parse(struct command_info *c, int argc, char** argv)
 	}
 	d("act[%d] opt_cnt[%d] act_cnt[%d]", act, c->opt_arg_cnt, c->act_arg_cnt);
 
+	if (c->mode == MODE_INVALID) {
+		return EXIT_ACTION_NOT_FOUND;
+	}
+
 	c->opt_arg = (const char**)malloc(sizeof(const char*)*c->opt_arg_cnt);
-	for (i=0; i<c->opt_arg_cnt; i++) {
+	for (i=0; i < c->opt_arg_cnt; i++) {
 		c->opt_arg[i] = argv[i+1];
 		d("opt_args[%d] = argv[%d] = %s", i, i+1, argv[i+1]);
 	}
 
 	c->act_arg = (const char**)malloc(sizeof(const char*)*c->act_arg_cnt);
-	for (i=0; i<c->act_arg_cnt; i++) {
+	for (i=0; i < c->act_arg_cnt; i++) {
 		c->act_arg[i] = argv[act+1+i];
 		d("act_args[%d] = argv[%d] = %s", i, act+1+i, argv[act+1+i]);
 	}
 
-	// get options
-	// now, how to get options?
-	// zero, i want to parse all options into the proper data structure
-	// first, i wanna make sure the options i am getting are only valid for the current mode
-	// second, check the validity of the said data
-	// TODO: READ ABOVE
+	// Now, parsing the options. How to parse the options?
+	// First, organize all options into the proper data structure.
+	// Get the option indicator, then parse the backdata (if it exists) to a variable.
+	// Second, make sure the options received are valid for the current mode.
+	// Third, check the validity of the data received
+	// Fourth, if data is not used else where, use it now
+	for (i=1; i < c->opt_arg_cnt+1; i++) {
+		d("----->[%d][%s]", i, argv[i]);
+		if (_strncmp(argv[i], "-h", (size_t)2) == 0) {
+			return EXIT_HELP_PAGE;
+		} else if (_strncmp(argv[i], "-g", (size_t)2) == 0) {
+			if (_strlen(argv[i]) > 2) { // group name is in option
+				snprintf(c->group_name, MAX_GROUP_NAME_LEN, "%s", argv[i]+2);
+			} else { // group name is separate
+				if (i >= c->opt_arg_cnt) {
+					return EXIT_NO_GROUP_NAME;
+				}
+				snprintf(c->group_name, MAX_GROUP_NAME_LEN, "%s", argv[i+1]);
+				i++;
+			}
+			d("-------->group_name[%s]", c->group_name);
+			
+			switch (c->mode) {
+				case MODE_ADD:
+				case MODE_REMOVE:
+				case MODE_SHOW:
+				case MODE_COMMENT:
+				case MODE_COMMIT:
+				case MODE_EDIT:
+				case MODE_CLEAN:
+				case MODE_REVERT: {
+					break;
+				}
+				default: {
+					errout("Invalid option for this action. [%s]", argv[i]);
+					return EXIT_INVALID_OPTION;
+				}
+			}
+			
+			group_list = json_object_get(c->j_config, "groups");
+			c->j_group = json_object_get(group_list, c->group_name);
+
+			if (c->j_group == NULL) {
+				c->j_group = json_array();
+				if (c->j_group != NULL) {
+					alert("Created new group! [%s] Don't forget it [>.<]", c->group_name);
+				} else {
+					errout("Unable to create new group. [%s][^.-]", c->group_name);
+					return EXIT_ERROR;
+				}
+			}
+		} else {
+			errout("IDK what this is. You tell me. [%s]", argv[i]);
+			return EXIT_UNKNOWN_OPTION;
+		}
+	}
+
+	if (c->j_group == NULL) {
+		group_list = json_object_get(c->j_config, "groups");
+		snprintf(c->group_name, MAX_GROUP_NAME_LEN, "default");
+		c->j_group = json_object_get(group_list, c->group_name);
+		if (c->j_group == NULL) {
+			errout("Unable to get default group!");
+			return EXIT_ERROR;
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -207,9 +275,9 @@ static int get_config(struct command_info *c)
 	}
 
 	// load configuration file as JSON
-	c->config_object = json_loadf(fp, (JSON_DECODE_ANY | JSON_DISABLE_EOF_CHECK), &error);
+	c->j_config = json_loadf(fp, (JSON_DECODE_ANY | JSON_DISABLE_EOF_CHECK), &error);
 	fclose(fp);
-	dj(c->config_object);
+	dj(c->j_config);
 
 	return 0;
 }
@@ -313,8 +381,8 @@ static void deinit(struct command_info *c)
 	free(c->svn_root_path);
 	free(c->config_path);
 
-	dj(c->config_object);
-	json_decref(c->config_object);
+	dj(c->j_config);
+	json_decref(c->j_config);
 
 	d("Finished de-initalization");
 }
@@ -332,8 +400,10 @@ int main(int argc, char** argv)
 	exit_code = init(&cmd);
 	if (exit_code < 0) goto END_PROG;
 
-	option_parse(&cmd, argc, argv);
+	exit_code = option_parse(&cmd, argc, argv);
+	if (exit_code < 0) goto END_PROG;
 
+	// note: never delete the json array on clean. just pop the data out
 	switch(cmd.mode) {
 		case MODE_ADD:
 		{
@@ -355,6 +425,30 @@ END_PROG:
 	switch(exit_code) {
 		case EXIT_NOT_IN_SVN_REPO: {
 			errout("You are not inside a SVN repository! [-.-]");
+			break;
+		}
+		case EXIT_ACTION_NOT_FOUND: {
+			errout("No action received [-.-]");
+			help();
+			break;
+		}
+		case EXIT_NO_GROUP_NAME: {
+			errout("No group name was indicated in your options. [T.-]");
+			help();
+			break;
+		}
+		case EXIT_UNKNOWN_OPTION: {
+			errout("Unknown option received. [o.O]");
+			help();
+			break;
+		}
+		case EXIT_INVALID_OPTION: {
+			errout("Invalid option received. [o.O]");
+			help();
+			break;
+		}
+		case EXIT_HELP_PAGE: {
+			help();
 			break;
 		}
 		case EXIT_NORMAL: {

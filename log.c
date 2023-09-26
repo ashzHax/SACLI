@@ -28,7 +28,7 @@ void out(const char* s, ...)
 	vsnprintf(log+p, sizeof(log)-p, s, list);
 	va_end(list);
 
-	printf("%s\n", log);
+	printf("%s\n%s", log, _RESET);
 
 	return;
 }
@@ -54,7 +54,33 @@ void errout(const char* s, ...)
 	vsnprintf(log+p, sizeof(log)-p, s, list);
 	va_end(list);
 
-	fprintf(stderr, "%s\n", log);
+	fprintf(stderr, "%s\n%s", log, _RESET);
+
+	return;
+}
+
+/*
+ * description
+ * For printing important information to user.
+ */
+void alert(const char* s, ...)
+{
+	va_list list;
+	time_t t = time(NULL);
+	struct tm mt = *localtime(&t);
+	char log[MAX_LOG_SIZE] = {0};
+	int p = 0;
+
+	p = snprintf(log, sizeof(log), "%s[%04d/%02d/%02d][%02d:%02d:%02d] ",
+			_F_BRIGHT_GREEN,
+			mt.tm_year+1900, mt.tm_mon+1, mt.tm_mday,
+			mt.tm_hour, mt.tm_min, mt.tm_sec);
+
+	va_start(list, s);
+	vsnprintf(log+p, sizeof(log)-p, s, list);
+	va_end(list);
+
+	printf("%s\n%s", log, _RESET);
 
 	return;
 }

@@ -21,6 +21,10 @@
 #define EXIT_UNABLE_TO_OPEN_FILE	-6
 #define EXIT_INIT_FAILED			-7
 #define EXIT_FAILED_TO_GET_CONFIG	-8
+#define EXIT_HELP_PAGE				-9
+#define EXIT_NO_GROUP_NAME			-10
+#define EXIT_UNKNOWN_OPTION			-11
+#define EXIT_INVALID_OPTION			-12
 
 #define MAX_ARG_LEN 1024
 #define MAX_PATH_LEN 1024
@@ -46,14 +50,16 @@ enum {
 
 struct command_info {
 	int				mode;
-	int				opt_arg_cnt;		// option argument count
-	int				act_arg_cnt;		// action argument count
-	const char**	opt_arg;			// option arguments
-	const char**	act_arg;			// action arguments
-	char*			svn_root_path;		// subversion root dir
-	char*			config_path;		// configuration file path
-	json_t*			config_object;		// json object for holding configuration value
-	char			cwd[MAX_PATH_LEN];	// current working directory
+	int				opt_arg_cnt;					// option argument count
+	int				act_arg_cnt;					// action argument count
+	const char**	opt_arg;						// option arguments
+	const char**	act_arg;						// action arguments
+	char*			svn_root_path;					// subversion root dir
+	char*			config_path;					// configuration file path
+	json_t*			j_config;						// json object for holding configuration value
+	char			cwd[MAX_PATH_LEN];				// current working directory, without root path
+	char			group_name[MAX_GROUP_NAME_LEN];	// Name of command target group
+	json_t*			j_group;						// command target group
 };
 
 // utilities functions
