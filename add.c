@@ -59,11 +59,8 @@ static json_t* get_group(struct command_info *c)
 #endif
 
 /*
- * Received the 'add' action command, let's go.
- * 
  * description
  * Handler for the 'add' action command.
- *
  * TODO: need to add to actual svn (on svm commit)
  */
 void add(struct command_info* c)

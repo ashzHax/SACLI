@@ -56,7 +56,6 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 	int j = 0;
 	char argt[MAX_ARG_LEN] = {0};
 	int act = 0;
-	// TODO: check naming if its good
 	json_t *group_list = NULL;
 
 	for (i=1; i<argc; i++) {
@@ -104,21 +103,24 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 	// Third, check the validity of the data received
 	// Fourth, if data is not used else where, use it now
 	for (i=1; i < c->opt_arg_cnt+1; i++) {
-		d("----->[%d][%s]", i, argv[i]);
 		if (_strncmp(argv[i], "-h", (size_t)2) == 0) {
+			d("Got [-h] option!");
 			return EXIT_HELP_PAGE;
 		} else if (_strncmp(argv[i], "-g", (size_t)2) == 0) {
-			if (_strlen(argv[i]) > 2) { // group name is in option
+			d("Got [-g] option!");
+
+			if (_strlen(argv[i]) > 2) { // group name is in current option argument
 				snprintf(c->group_name, MAX_GROUP_NAME_LEN, "%s", argv[i]+2);
-			} else { // group name is separate
-				if (i >= c->opt_arg_cnt) {
+			} else { // group name is in a separate option argument
+				if (i >= c->opt_arg_cnt) { // check if there are no more arguments
 					return EXIT_NO_GROUP_NAME;
 				}
-				snprintf(c->group_name, MAX_GROUP_NAME_LEN, "%s", argv[i+1]);
 				i++;
+				snprintf(c->group_name, MAX_GROUP_NAME_LEN, "%s", argv[i]);
 			}
-			d("-------->group_name[%s]", c->group_name);
+			d("Option group name [%s]", c->group_name);
 			
+			// Step 2: Check if option is valid for current mode
 			switch (c->mode) {
 				case MODE_ADD:
 				case MODE_REMOVE:
@@ -135,11 +137,12 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 					return EXIT_INVALID_OPTION;
 				}
 			}
-			
+
+			// Step 3: Check validity of received data
 			group_list = json_object_get(c->j_config, "groups");
 			c->j_group = json_object_get(group_list, c->group_name);
 
-			if (c->j_group == NULL) {
+			if (c->j_group == NULL) { // if group is not found, create it
 				c->j_group = json_array();
 				if (c->j_group != NULL) {
 					alert("Created new group! [%s] Don't forget it [>.<]", c->group_name);
@@ -149,15 +152,18 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 				}
 			}
 		} else {
-			errout("IDK what this is. You tell me. [%s]", argv[i]);
+			errout("IDK what this option is. [%s]", argv[i]);
 			return EXIT_UNKNOWN_OPTION;
 		}
 	}
 
+	// if no group was found by this point, set 'j_config' to default group
 	if (c->j_group == NULL) {
-		group_list = json_object_get(c->j_config, "groups");
 		snprintf(c->group_name, MAX_GROUP_NAME_LEN, "default");
+
+		group_list = json_object_get(c->j_config, "groups");
 		c->j_group = json_object_get(group_list, c->group_name);
+
 		if (c->j_group == NULL) {
 			errout("Unable to get default group!");
 			return EXIT_ERROR;
@@ -248,15 +254,16 @@ static int get_config(struct command_info *c)
 {
 	FILE *fp = NULL;
 	json_error_t error; // jansson error handling
+	int len = 0;
 	
 	// get configuration file path
-	c->config_path = (char*)malloc(sizeof(char)*MAX_PATH_LEN);
 	if (c->config_path == NULL) {
 		errout("malloc() failed");
 		return -1;
 	}
 
-	snprintf(c->config_path, MAX_PATH_LEN, "%s%s", c->svn_root_path, CFG_FILE);
+	len = _strlen(c->svn_root_path)+_strlen(CFG_FILE)+2;
+	snprintf(c->config_path, len, "%s%s", c->svn_root_path, CFG_FILE);
 	d("Configuration file path [%s]", c->config_path);
 
 	// check if configuration file exists
@@ -344,7 +351,6 @@ static int init(struct command_info *c)
 	c->mode = MODE_INVALID; // -1
 
 	// get root path
-	c->svn_root_path = (char*)malloc(sizeof(char)*MAX_PATH_LEN);
 	if (get_svn_rd(c->svn_root_path, MAX_PATH_LEN) < 0) {
 		ret = EXIT_NOT_IN_SVN_REPO;
 		goto EXIT;
@@ -378,8 +384,6 @@ static void deinit(struct command_info *c)
 {
 	free(c->opt_arg);
 	free(c->act_arg);
-	free(c->svn_root_path);
-	free(c->config_path);
 
 	dj(c->j_config);
 	json_decref(c->j_config);
@@ -428,7 +432,7 @@ END_PROG:
 			break;
 		}
 		case EXIT_ACTION_NOT_FOUND: {
-			errout("No action received [-.-]");
+			errout("No action received. [-.-]");
 			help();
 			break;
 		}
@@ -452,7 +456,7 @@ END_PROG:
 			break;
 		}
 		case EXIT_NORMAL: {
-			out("Finished. [^.^][%d]", exit_code);
+			out("Ending with no errors, what a surprise. [^.^][%d]", exit_code);
 			break;
 		}
 		default: {

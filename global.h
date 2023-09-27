@@ -54,8 +54,8 @@ struct command_info {
 	int				act_arg_cnt;					// action argument count
 	const char**	opt_arg;						// option arguments
 	const char**	act_arg;						// action arguments
-	char*			svn_root_path;					// subversion root dir
-	char*			config_path;					// configuration file path
+	char			svn_root_path[MAX_PATH_LEN];	// subversion root dir
+	char			config_path[MAX_PATH_LEN];		// configuration file path
 	json_t*			j_config;						// json object for holding configuration value
 	char			cwd[MAX_PATH_LEN];				// current working directory, without root path
 	char			group_name[MAX_GROUP_NAME_LEN];	// Name of command target group
