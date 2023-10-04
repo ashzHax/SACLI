@@ -44,6 +44,33 @@ static void help()
 
 /*
  * description
+ * Save 'c->j_group' as 'c->group_name' to c->j_config.
+ * Dump 'c->j_config' to file.
+ */
+static void save_config(struct command_info *c)
+{
+	json_t *group_list = NULL;
+
+	if (c == NULL) return;
+
+	group_list = json_object_get(c->j_config, "groups");
+	if (group_list == NULL) {
+		errout("Unable to get 'groups' object, critical error");
+		return;
+	}
+
+	json_object_set(group_list, c->group_name, c->j_group);
+	dj(c->j_config);
+
+	if (json_dump_file(c->j_config, c->config_path, JSON_INDENT(1)) < 0) {
+		errout("Failed to dump configuration data to file, critical error");
+	} else {
+		d("Data dump successful");
+	}
+}
+
+/*
+ * description
  * Finds the action argument, then divide option and action arguments
  * 
  * return
@@ -413,6 +440,7 @@ int main(int argc, char** argv)
 		{
 			d("running \"ADD\" function");
 			add(&cmd);
+			save_config(&cmd);
 			break;
 		}
 		default:
