@@ -224,3 +224,36 @@ char* add_end_dir_slash(char* s, size_t max)
 
 	return NULL; // should not run, critical error
 }
+
+/*
+ * description
+ * Get SVN file schedule for the file 's'
+ *
+ * return
+ * The SVN schedule of target file
+ */
+int get_file_svn_schedule(const char *s)
+{
+	FILE *p = NULL; 
+	int type = SVN_SCHED_UNDEFINED;
+	char cmd[MAX_CMD_LEN] = {0};
+	char buf[MAX_SCHED_LEN] = {0};
+
+	snprintf(cmd, MAX_CMD_LEN, "svn info %s | grep Schedule: | awk '{print $2}'", s);
+
+	p = popen(cmd, "r");
+	if (p) {
+		fgets(buf, sizeof(buf), p);
+		pclose(p);
+	}
+
+	if (_strfcmp(buf, "normal") == 0) {
+		type = SVN_SCHED_NORMAL;
+	} else if (_strfcmp(buf, "add") == 0) {
+		type = SVN_SCHED_ADD;
+	} else if (_strfcmp(buf, "delete") == 0) {
+		type = SVN_SCHED_DELETE;
+	}
+
+	return type;
+}

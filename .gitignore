@@ -1,3 +1,5 @@
 *.o
 svm
 *.swp
+lib/
+include/

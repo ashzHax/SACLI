@@ -14,6 +14,7 @@ OBJ=\
     global.o \
     log.o \
     add.o \
+    remove.o \
     main.o
 
 DEFINES=-DMODE_DEBUG \

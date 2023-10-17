@@ -12,7 +12,8 @@
 #include <global.h>
 #include <log.h>
 
-extern void add(struct command_info* c);
+extern int _add(struct command_info* c);
+extern void _remove(struct command_info* c);
 
 /*
  * note
@@ -21,7 +22,9 @@ extern void add(struct command_info* c);
  */
 const char* mode_list[MODE_MAX] = {
 	"add",
+	"a",
 	"remove",
+	"rm",
 	"show",
 	"comment",
 	"commit",
@@ -437,9 +440,18 @@ int main(int argc, char** argv)
 	// note: never delete the json array on clean. just pop the data out
 	switch(cmd.mode) {
 		case MODE_ADD:
+		case MODE_ADD_SHORT:
 		{
 			d("running \"ADD\" function");
-			add(&cmd);
+			_add(&cmd);
+			save_config(&cmd);
+			break;
+		}
+		case MODE_REMOVE:
+		case MODE_REMOVE_SHORT:
+		{
+			d("running \"REMOVE\" function");
+			_remove(&cmd);
 			save_config(&cmd);
 			break;
 		}

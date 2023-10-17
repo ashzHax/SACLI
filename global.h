@@ -3,6 +3,7 @@
 
 #include <jansson.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 // TODO: needs better implementation, preferably to a Makefile define
 #define CFG_FILE ".c.json"
@@ -25,17 +26,23 @@
 #define EXIT_NO_GROUP_NAME			-10
 #define EXIT_UNKNOWN_OPTION			-11
 #define EXIT_INVALID_OPTION			-12
+#define EXIT_ADD_FAILED				-13
 
 #define MAX_ARG_LEN 1024
 #define MAX_PATH_LEN 1024
 #define MAX_GROUP_NAME_LEN 128
+#define MAX_CMD_LEN 1024
+#define MAX_SCHED_LEN 32
+#define MAX_FILENAME_LEN 256
 
 // command modes, depending on 'action' argument user input
 // enum order must match list defined in global.c
 enum {
 	MODE_INVALID = -1,
 	MODE_ADD = 0,
+	MODE_ADD_SHORT,
 	MODE_REMOVE,
+	MODE_REMOVE_SHORT,
 	MODE_SHOW,
 	MODE_COMMENT,
 	MODE_COMMIT,
@@ -46,6 +53,13 @@ enum {
 	MODE_REVERT,
 	MODE_ROLLBACK,
 	MODE_MAX
+};
+
+enum {
+	SVN_SCHED_NORMAL = 0,
+	SVN_SCHED_ADD,
+	SVN_SCHED_DELETE,
+	SVN_SCHED_UNDEFINED
 };
 
 struct command_info {
@@ -70,4 +84,5 @@ int		_strfcmp(const char *a, const char *b);
 int		_strncmp(const char *a, const char *b, size_t t);
 void	rm_whitespace(char *s);
 char*	add_end_dir_slash(char* s, size_t max);
+int		get_file_svn_schedule(const char *s);
 #endif // __GLOBAL_H__
