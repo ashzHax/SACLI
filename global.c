@@ -5,7 +5,6 @@
  * recorded here.
  */
 
-#include <stdio.h>
 #include <global.h>
 
 /* 
@@ -246,6 +245,7 @@ int get_file_svn_schedule(const char *s)
 		fgets(buf, sizeof(buf), p);
 		pclose(p);
 	}
+	rm_whitespace(buf);
 
 	if (_strfcmp(buf, "normal") == 0) {
 		type = SVN_SCHED_NORMAL;
@@ -256,4 +256,275 @@ int get_file_svn_schedule(const char *s)
 	}
 
 	return type;
+}
+
+/*
+ * description
+ * Find the 'nth' substring, and return the pointer to the start of substring
+ *
+ * parameter
+ * nth = starts from 0
+ * s = string
+ * ss = substring
+ *
+ * return
+ * The position of 's' where 'nth' substring starts
+ */
+char* ss_find_nth(int nth, const char* s, const char* ss)
+{
+	int i = 0;
+	size_t slen = 0;
+	int j = 0;
+	size_t sslen = 0;
+	int flag = 0; // is substring the same as current position?
+	int cnt = 0; // substring count
+
+	if (nth < 0 || s == NULL || ss == NULL) return NULL;
+
+	slen = _strlen(s);
+	sslen = _strlen(ss);
+
+	if (slen < sslen) return NULL;
+
+	for (i=0; i<(int)slen; i++) {
+		if (s[i] == ss[0]) {
+			flag = 1; // reset
+
+			for (j=0; j<(int)sslen; j++) {
+				if(s[i+j] != ss[j]) {
+					flag = 0; // is not the same
+					break;
+				}
+			}
+
+			if (flag) {
+				cnt++;
+				if (cnt >= nth) {
+					return (char*)(s+i);
+				}
+			}
+		}
+	}
+
+	return NULL;
+}
+
+/*
+ * description
+ * Get th total count of a substring found in string
+ *
+ * return
+ * Number of 'ss' found in 's'
+ * -1: error case
+ */
+int ss_cnt(const char* s, const char* ss)
+{
+	int i = 0;
+	size_t slen = 0;
+	int j = 0;
+	size_t sslen = 0;
+	int flag = 0; // is substring the same as current position?
+	int cnt = 0; // substring count
+
+	if (s == NULL || ss == NULL) return -1;
+
+	slen = _strlen(s);
+	sslen = _strlen(ss);
+
+	for (i=0; i<slen; i++) {
+		if (s[i] == ss[0]) {
+			flag = 1; // reset
+
+			for (j=0; j<sslen; j++) {
+				if(s[i+j] != ss[j]) {
+					flag = 0; // is not the same
+					break;
+				}
+			}
+
+			if (flag) cnt++;
+		}
+	}
+
+	return cnt;
+}
+
+/*
+ * description
+ * Get finalized, clean path string from user-inputted pathing
+ *
+ * parameter
+ * p = path string pointer
+ * f = finalized path string pointer
+ * f_sz = size of 'f'
+ */
+int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
+{
+	struct stat fs;
+	char new_p1[MAX_PATH_LEN] = {0}; // new path buffer 1
+	int s_cnt = 0; // substring count
+	char **new_p2 = NULL; // new path array 2
+	int p_len = 0; // length of path
+	int first = 0; // first character index of a file name
+	int *back_list = NULL;
+	int *del_list = NULL;
+	int i = 0;
+	int j = 0;
+	int d = 0;
+	int b = 0;
+	int flag = 0;
+	int ret = 0;
+
+	if (c == NULL || p == NULL || f == NULL || f_sz < 0) return -1;
+
+	// check if path is valid
+	if (access(p, F_OK) != 0) {
+		if (get_file_svn_schedule(p) == SVN_SCHED_UNDEFINED) {
+			errout("path received does not exist [%s]", new_p1);
+			return -1;
+		}
+		_strcpy(p, f, f_sz); // file is registered for schedule in SVN
+		return 0;
+	}
+
+	// to check if 'p' is a directory
+	if (stat(p, &fs) != 0) return -1;
+
+	// if 'p' is a directory, but does not have the end '/', add it
+	s_cnt = 0;
+	if (S_ISDIR(fs.st_mode) && p[_strlen(p)-1] != '/') {
+		snprintf(new_p1, sizeof(new_p1), "%s/", p);
+	} else {
+		if (_strcpy(p, new_p1, sizeof(new_p1)) == NULL) return -1;
+		s_cnt = 1;
+	}
+	p_len = _strlen(new_p1);
+
+	// split all paths by '/'
+	s_cnt += ss_cnt(new_p1, "/"); 
+	
+	new_p2 = (char**)malloc(sizeof(char*) * s_cnt);
+	if (new_p2 == NULL) {
+		d("malloc failed(), critical error");
+		errout("Memory allocation failed! Exiting...");
+		ret = -1;
+		goto ERR;
+	}
+	memset(new_p2, 0, sizeof(char*) * s_cnt);
+
+	del_list = (int*)malloc(sizeof(int) * s_cnt);
+	if (del_list == NULL) {
+		d("malloc failed(), critical error");
+		errout("Memory allocation failed! Exiting...");
+		ret = -1;
+		goto ERR;
+	}
+	memset(del_list, 0, sizeof(int) * s_cnt);
+
+	back_list = (int*)malloc(sizeof(int) * s_cnt);
+	if (back_list == NULL) {
+		d("malloc failed(), critical error");
+		errout("Memory allocation failed! Exiting...");
+		ret = -1;
+		goto ERR;
+	}
+	memset(back_list, 0, sizeof(int) * s_cnt);
+
+	first = 0;
+	b = 0;
+	d = 0;
+	for (i=0; i<s_cnt; i++) {
+		new_p2[i] = (char*)malloc(sizeof(char) * MAX_FILENAME_LEN);
+		if (new_p2[i] == NULL) {
+			d("malloc failed(), critical error");
+			errout("Memory allocation failed! Exiting...");
+			ret = -1;
+			goto ERR;
+		}
+
+		// want to target the NULL character at the end
+		for (j=first; j<=p_len; j++) {
+			if (new_p1[j] == '/') {
+				_strcpy(&new_p1[first], new_p2[i], (j-first)+1);
+				first = j+1;
+				break;
+			} else if (new_p1[j] == '\0') {
+				_strcpy(&new_p1[first], new_p2[i], (j-first)+1);
+				first = -1; // end allocation loop
+				break;
+			}
+		}
+		
+		// end this loop, since we no longer need more files
+		if (first < 0) break;
+
+		// check what is within the file names
+		if (_strfcmp(new_p2[i], "../") == 0) {
+			if (i == 0) {
+				errout("Unable to handle back pathing from root [%s]", new_p2[i]);
+				ret = -1;
+				goto ERR;
+			}
+			back_list[b++] = i;
+		} else if (_strfcmp(new_p2[i], "./") == 0) {
+			del_list[d++] = i;
+		}
+	}
+
+	first = 0; // used as position pointer for 'f'
+	for (i=0; i<s_cnt; i++) {
+		flag = 0;
+
+		for (j=0; j<d; j++) {
+			if (i == del_list[j]) {
+				flag = 1;
+				break;
+			}
+		}
+		if (flag) continue;
+
+		for (j=0; j<b; j++) {
+			// checking the front word as well as current
+			if (i+1 == back_list[j] || i == back_list[j]) {
+				flag = 1;
+				break;
+			}
+		}
+		if (flag) continue;
+
+		first += snprintf(f+first, f_sz-first, "%s", new_p2[i]);
+	}
+
+	// see if it exists with SVN root path attached to it
+	snprintf(new_p1, sizeof(new_p1), "%s%s", c->svn_root_path, f);
+	d("root attached file path, for checks [%s]", new_p1);
+
+	// check if final path is valid
+	if (access(new_p1, F_OK) != 0) {
+		if (get_file_svn_schedule(new_p1) == SVN_SCHED_UNDEFINED) {
+			d("cleaned path does not exist, returning original [%s]", p);
+			_strcpy(p, f, f_sz); // file is registered for schedule in SVN
+			ret = 0;
+			goto ERR;
+		}
+	}
+ERR:
+	if (new_p2 != NULL) {
+		for (i=0; i<s_cnt; i++) {
+			if (new_p2[i] != NULL) {
+				free(new_p2[i]);
+			}
+		}
+		free(new_p2);
+	}
+
+	if (del_list != NULL) {
+		free(del_list);
+	}
+
+	if (back_list != NULL) {
+		free(back_list);
+	}
+
+	return ret;
 }

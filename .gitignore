@@ -3,3 +3,4 @@ svm
 *.swp
 lib/
 include/
+tags

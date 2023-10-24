@@ -1,9 +1,12 @@
 #ifndef __GLOBAL_H__
 #define __GLOBAL_H__
 
+#include <stdio.h>
 #include <jansson.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/stat.h>
+#include <log.h>
 
 // TODO: needs better implementation, preferably to a Makefile define
 #define CFG_FILE ".c.json"
@@ -85,4 +88,7 @@ int		_strncmp(const char *a, const char *b, size_t t);
 void	rm_whitespace(char *s);
 char*	add_end_dir_slash(char* s, size_t max);
 int		get_file_svn_schedule(const char *s);
+char*	ss_find_nth(int nth, const char* s, const char* ss);
+int		ss_cnt(const char* s, const char* ss);
+int		get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz);
 #endif // __GLOBAL_H__
