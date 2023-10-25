@@ -357,11 +357,14 @@ int ss_cnt(const char* s, const char* ss)
  * p = path string pointer
  * f = finalized path string pointer
  * f_sz = size of 'f'
+ * 
+ * note
+ * added a new more bytes to handle compile error of buffer overflow
  */
 int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 {
 	struct stat fs;
-	char new_p1[MAX_PATH_LEN] = {0}; // new path buffer 1
+	char new_p1[MAX_PATH_LEN+4] = {0}; // new path buffer 1 
 	int s_cnt = 0; // substring count
 	char **new_p2 = NULL; // new path array 2
 	int p_len = 0; // length of path
@@ -380,7 +383,6 @@ int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 	// check if path is valid
 	if (access(p, F_OK) != 0) {
 		if (get_file_svn_schedule(p) == SVN_SCHED_UNDEFINED) {
-			errout("path received does not exist [%s]", new_p1);
 			return -1;
 		}
 		_strcpy(p, f, f_sz); // file is registered for schedule in SVN
@@ -393,9 +395,9 @@ int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 	// if 'p' is a directory, but does not have the end '/', add it
 	s_cnt = 0;
 	if (S_ISDIR(fs.st_mode) && p[_strlen(p)-1] != '/') {
-		snprintf(new_p1, sizeof(new_p1), "%s/", p);
+		snprintf(new_p1, sizeof(new_p1), "%s%s/", c->cwd, p);
 	} else {
-		if (_strcpy(p, new_p1, sizeof(new_p1)) == NULL) return -1;
+		snprintf(new_p1, sizeof(new_p1), "%s%s", c->cwd, p);
 		s_cnt = 1;
 	}
 	p_len = _strlen(new_p1);
@@ -405,8 +407,7 @@ int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 	
 	new_p2 = (char**)malloc(sizeof(char*) * s_cnt);
 	if (new_p2 == NULL) {
-		d("malloc failed(), critical error");
-		errout("Memory allocation failed! Exiting...");
+		d("malloc failed()");
 		ret = -1;
 		goto ERR;
 	}
@@ -414,8 +415,7 @@ int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 
 	del_list = (int*)malloc(sizeof(int) * s_cnt);
 	if (del_list == NULL) {
-		d("malloc failed(), critical error");
-		errout("Memory allocation failed! Exiting...");
+		d("malloc failed()");
 		ret = -1;
 		goto ERR;
 	}
@@ -423,8 +423,7 @@ int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 
 	back_list = (int*)malloc(sizeof(int) * s_cnt);
 	if (back_list == NULL) {
-		d("malloc failed(), critical error");
-		errout("Memory allocation failed! Exiting...");
+		d("malloc failed()");
 		ret = -1;
 		goto ERR;
 	}
@@ -436,8 +435,7 @@ int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 	for (i=0; i<s_cnt; i++) {
 		new_p2[i] = (char*)malloc(sizeof(char) * MAX_FILENAME_LEN);
 		if (new_p2[i] == NULL) {
-			d("malloc failed(), critical error");
-			errout("Memory allocation failed! Exiting...");
+			d("malloc failed()");
 			ret = -1;
 			goto ERR;
 		}
@@ -461,7 +459,7 @@ int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 		// check what is within the file names
 		if (_strfcmp(new_p2[i], "../") == 0) {
 			if (i == 0) {
-				errout("Unable to handle back pathing from root [%s]", new_p2[i]);
+				d("unable to handle back pathing from root [%s]", new_p2[i]);
 				ret = -1;
 				goto ERR;
 			}

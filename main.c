@@ -13,7 +13,7 @@
 #include <log.h>
 
 extern int _add(struct command_info* c);
-extern void _remove(struct command_info* c);
+extern int _remove(struct command_info* c);
 
 /*
  * note
@@ -430,6 +430,7 @@ int main(int argc, char** argv)
 {
 	struct command_info cmd;
 	int exit_code = EXIT_NORMAL;
+	int i = 0;
 
 	exit_code = init(&cmd);
 	if (exit_code < 0) goto END_PROG;
@@ -437,12 +438,25 @@ int main(int argc, char** argv)
 	exit_code = option_parse(&cmd, argc, argv);
 	if (exit_code < 0) goto END_PROG;
 
+	d("cmd.mode [%d]", cmd.mode);
+	d("cmd.opt_arg_cnt [%d]", cmd.opt_arg_cnt);
+	d("cmd.act_arg_cnt [%d]", cmd.act_arg_cnt);
+	for (i=0; i<cmd.opt_arg_cnt; i++) {
+		d("cmd.opt_arg[%d] [%s]", i, cmd.opt_arg[i]);
+	}
+	for (i=0; i<cmd.act_arg_cnt; i++) {
+		d("cmd.act_arg[%d] [%s]", i, cmd.act_arg[i]);
+	}
+	d("cmd.svn_root_path [%s]", cmd.svn_root_path);
+	d("cmd.config_path [%s]", cmd.config_path);
+	d("cmd.cwd [%s]", cmd.cwd);
+	d("cmd.group_name [%s]", cmd.group_name);
+
 	// note: never delete the json array on clean. just pop the data out
 	switch(cmd.mode) {
 		case MODE_ADD:
 		case MODE_ADD_SHORT:
 		{
-			d("running \"ADD\" function");
 			_add(&cmd);
 			save_config(&cmd);
 			break;
@@ -450,7 +464,6 @@ int main(int argc, char** argv)
 		case MODE_REMOVE:
 		case MODE_REMOVE_SHORT:
 		{
-			d("running \"REMOVE\" function");
 			_remove(&cmd);
 			save_config(&cmd);
 			break;
@@ -468,26 +481,26 @@ END_PROG:
 
 	switch(exit_code) {
 		case EXIT_NOT_IN_SVN_REPO: {
-			errout("You are not inside a SVN repository! [-.-]");
+			errout("not inside a SVN repository! [-.-]");
 			break;
 		}
 		case EXIT_ACTION_NOT_FOUND: {
-			errout("No action received. [-.-]");
+			errout("no action received. [-.-]");
 			help();
 			break;
 		}
 		case EXIT_NO_GROUP_NAME: {
-			errout("No group name was indicated in your options. [T.-]");
+			errout("no group name was indicated in your options. [T.-]");
 			help();
 			break;
 		}
 		case EXIT_UNKNOWN_OPTION: {
-			errout("Unknown option received. [o.O]");
+			errout("unknown option received. [o.O]");
 			help();
 			break;
 		}
 		case EXIT_INVALID_OPTION: {
-			errout("Invalid option received. [o.O]");
+			errout("invalid option received. [o.O]");
 			help();
 			break;
 		}
@@ -496,7 +509,7 @@ END_PROG:
 			break;
 		}
 		case EXIT_NORMAL: {
-			out("Ending with no errors, what a surprise. [^.^][%d]", exit_code);
+			out("ending with no errors, what a surprise. [^.^][%d]", exit_code);
 			break;
 		}
 		default: {

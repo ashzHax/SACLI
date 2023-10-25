@@ -5,9 +5,6 @@
  * recorded here.
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 #include <jansson.h>
 #include <global.h>
 #include <log.h>
@@ -58,7 +55,7 @@ int _add(struct command_info* c)
 		}
 
 		if (is_same == 0) {
-			d("appending new file path to array (%s)", final_path);
+			out("adding new file to group [%s] -> [%s]", c->group_name, final_path);
 			json_array_append_new(c->j_group, json_string(final_path));
 		}
 	}

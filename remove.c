@@ -5,9 +5,6 @@
  * recorded here.
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 #include <jansson.h>
 #include <global.h>
 #include <log.h>
@@ -21,58 +18,49 @@
  * 2. Add '/' to the end of the path string if file path is a directory
  * 3. Append string to the CWD(Current Working Directory, without svn root)
  */
-void _remove(struct command_info* c)
+int _remove(struct command_info* c)
 {
 	int i = 0;
-	struct stat fs;
-	char rpath[MAX_PATH_LEN] = {0};
+	char final_path[MAX_PATH_LEN] = {0};
+	size_t index;
+	json_t *value;
+	int return_value = EXIT_NORMAL;
+	int flag = 0; // to check if anything was done
 
-	if (c == NULL) return;
+	if (c == NULL) {
+		d("critical error, 'c' is NULL");
+		return_value = EXIT_ADD_FAILED;
+		goto EXIT;
+	}
 
 	d("starting 'remove' command handler");
 
 	for (i=0; i<c->act_arg_cnt; i++) {
-		if (access(c->act_arg[i], F_OK) == 0) {
-			d("file exists (%s)", c->act_arg[i]);
+		if (get_clean_path(c, c->act_arg[i], final_path, sizeof(final_path)) < 0) {
+			errout("failed to find valid file [%s]", c->act_arg[i]);
+			// use received string as path anyway to check if path exists in array
+			_strcpy(c->act_arg[i], final_path, sizeof(final_path));
+		}
+		d("finalized file path (%s)", final_path);
 
-			if (stat(c->act_arg[i], &fs) == 0) {
-				d("stats retrieved (%s)", c->act_arg[i]);
-				
-				if (c->act_arg[i][0] == '.' && c->act_arg[i][1] == '/') {
-					snprintf(rpath, sizeof(rpath), "%s%s", c->cwd, c->act_arg[i]+2);
-				} else {
-					snprintf(rpath, sizeof(rpath), "%s%s", c->cwd, c->act_arg[i]);
+		// find and delete target
+		flag = 0;
+		json_array_foreach (c->j_group, index, value) {
+			if (_strfcmp(json_string_value(value), final_path) == 0) {
+				out("removing file from group [%s] -> [%s]", c->group_name, final_path);
+				if (json_array_remove(c->j_group, index) == -1) {
+					errout("failed to remove index from array");
 				}
-
-				// check if file path is a directory
-				if (S_ISDIR(fs.st_mode)) {
-					if (rpath[strlen(rpath)-1] != '/') {
-						rpath[strlen(rpath)] = '/';
-					}
-				}
-				d("finalized file path (%s)", rpath);
-
-				// check if 'rpath' exists
-				{
-					size_t index;
-					json_t *value;
-
-					json_array_foreach (c->j_group, index, value) {
-						if (_strfcmp(json_string_value(value), rpath) == 0) {
-							d("found matching string! removing from array (%s)", value);
-							if (json_array_remove(c->j_group, index) == -1) {
-								errout("failed to remove index from array");
-							}
-							break;
-						}
-					}
-				}
-
-			} else {
-				errout("unable to get file stats, critical error (%s)", c->act_arg[i]);
+				flag = 1;
+				break;
 			}
-		} else {
-			errout("path received does not exist (%s)", c->act_arg[i]);
+		}
+
+		if (flag == 0) {
+			errout("file [%s] not found inside group [%s]", final_path, c->group_name);
 		}
 	}
+
+EXIT:
+	return return_value;
 }
