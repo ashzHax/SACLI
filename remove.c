@@ -3,6 +3,7 @@
  * Before copying code to this file, make sure it's as perfect
  * as you can make it to be, since no debug logs should be
  * recorded here.
+ * Eh, who cares?
  */
 
 #include <jansson.h>
@@ -12,11 +13,6 @@
 /*
  * description
  * Handler for the 'remove' action command.
- *
- * Clean up the path string received by the user
- * 1. Remove initial './' part of string if it exists
- * 2. Add '/' to the end of the path string if file path is a directory
- * 3. Append string to the CWD(Current Working Directory, without svn root)
  */
 int _remove(struct command_info* c)
 {
