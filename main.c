@@ -14,6 +14,7 @@
 
 extern int _add(struct command_info* c);
 extern int _remove(struct command_info* c);
+extern int _show(struct command_info* c);
 
 /*
  * note
@@ -466,6 +467,11 @@ int main(int argc, char** argv)
 		{
 			_remove(&cmd);
 			save_config(&cmd);
+			break;
+		}
+		case MODE_SHOW:
+		{
+			_show(&cmd);
 			break;
 		}
 		default:
