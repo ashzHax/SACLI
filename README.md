@@ -17,8 +17,8 @@ Project will be built based on the svn command version 1.14.1 (r1886195)
 | remove    | {file/directory}           | Remove file from the commit group.                                |
 | show      |                            | Show all files inside commit group.                               |
 | comment   |                            | Edit the comment of the commit group.                             |
-| overwrite | {dest\_group} {src\_group} | Overwrite destination group with source group (Use with caution!) |
 | commit    |                            | Start the commit process!                                         |
+| overwrite | {dest\_group} {src\_group} | Overwrite destination group with source group (Use with caution!) |
 | edit      | \[all/selective\]          | Edit files inside the commit group. (Default: 'all')              |
 | help      |                            | Show help page.                                                   |
 | clean     |                            | Remove all files inside the commit group specified.               |
