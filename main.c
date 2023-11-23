@@ -15,6 +15,7 @@
 extern int _add(struct command_info* c);
 extern int _remove(struct command_info* c);
 extern int _show(struct command_info* c);
+extern int _comment(struct command_info* c);
 
 /*
  * note
@@ -63,6 +64,8 @@ static void save_config(struct command_info *c)
 		return;
 	}
 
+	json_object_set(c->j_group, "files", c->j_files);
+	json_object_set(c->j_group, "comment", c->j_comment);
 	json_object_set(group_list, c->group_name, c->j_group);
 	dj(c->j_config);
 
@@ -133,6 +136,7 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 	// Second, make sure the options received are valid for the current mode.
 	// Third, check the validity of the data received
 	// Fourth, if data is not used else where, use it now
+	// TODO: could optimize this code, by functionizing the actions
 	for (i=1; i < c->opt_arg_cnt+1; i++) {
 		if (_strncmp(argv[i], "-h", (size_t)2) == 0) {
 			d("Got [-h] option!");
@@ -164,7 +168,7 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 					break;
 				}
 				default: {
-					errout("Invalid option for this action. [%s]", argv[i]);
+					errout("invalid option for this action. [%s]", argv[i]);
 					return EXIT_INVALID_OPTION;
 				}
 			}
@@ -174,16 +178,22 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 			c->j_group = json_object_get(group_list, c->group_name);
 
 			if (c->j_group == NULL) { // if group is not found, create it
-				c->j_group = json_array();
-				if (c->j_group != NULL) {
-					alert("Created new group! [%s] Don't forget it [>.<]", c->group_name);
+				c->j_group = json_object();
+				c->j_files = json_array();
+				c->j_comment = json_string("");
+
+				if (c->j_group != NULL && c->j_files != NULL && c->j_comment != NULL) {
+					alert("created new group! [%s] don't forget it [-.-]", c->group_name);
 				} else {
-					errout("Unable to create new group. [%s][^.-]", c->group_name);
+					errout("unable to create new group. [%s][^.-]", c->group_name);
 					return EXIT_ERROR;
 				}
+			} else { // if group is found
+				c->j_files = json_object_get(c->j_group, "files");
+				c->j_comment = json_object_get(c->j_group, "comment");
 			}
 		} else {
-			errout("IDK what this option is. [%s]", argv[i]);
+			errout("idk what this option is. [%s]", argv[i]);
 			return EXIT_UNKNOWN_OPTION;
 		}
 	}
@@ -194,6 +204,8 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 
 		group_list = json_object_get(c->j_config, "groups");
 		c->j_group = json_object_get(group_list, c->group_name);
+		c->j_files = json_object_get(c->j_group, "files");
+		c->j_comment = json_object_get(c->j_group, "comment");
 
 		if (c->j_group == NULL) {
 			errout("Unable to get default group!");
@@ -238,11 +250,12 @@ static int get_svn_rd(char *buf, size_t len)
  * description
  * Creates the configuration file, and fills it with the default values
  */
-static int create_file(struct command_info *c)
+static int create_config_file(struct command_info *c)
 {
 	FILE *fp = NULL;
 	json_t *new = NULL;
 	json_t *group = NULL;
+	json_t *_default = NULL; // default group
 
 	fp = fopen(c->config_path, "w+");
 	if (fp == NULL) {
@@ -252,14 +265,17 @@ static int create_file(struct command_info *c)
 
 	new = json_object();
 	group = json_object();
+	_default = json_object();
 
 	if (new == NULL || group == NULL) {
 		errout("failed to create json object");
 		return -1;
 	}
 
-	// OBJECT -> groups -> default -> []
-	json_object_set(group, "default", json_array());
+	// OBJECT -> groups -> default -> files -> []
+	json_object_set(_default, "files", json_array());
+	json_object_set(_default, "comment", json_string(""));
+	json_object_set(group, "default", _default);
 	json_object_set(new, "groups", group);
 
 	json_dumpf(new, fp, JSON_INDENT(4));
@@ -300,7 +316,7 @@ static int get_config(struct command_info *c)
 	// check if configuration file exists
 	// if not, create file with default values
 	if (access(c->config_path, F_OK) != 0) {
-		if (create_file(c) < 0) {
+		if (create_config_file(c) < 0) {
 			return -1;
 		}
 	}
@@ -472,6 +488,12 @@ int main(int argc, char** argv)
 		case MODE_SHOW:
 		{
 			_show(&cmd);
+			break;
+		}
+		case MODE_COMMENT:
+		{
+			_comment(&cmd);
+			save_config(&cmd);
 			break;
 		}
 		default:

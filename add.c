@@ -42,7 +42,7 @@ int _add(struct command_info* c)
 
 		// check if 'final_path' has duplicates
 		is_same = 0;
-		json_array_foreach (c->j_group, index, value) {
+		json_array_foreach (c->j_files, index, value) {
 			if (_strfcmp(json_string_value(value), final_path) == 0) {
 				errout("found duplicate file path, skipping (%s)", final_path);
 				is_same = 1;
@@ -52,7 +52,7 @@ int _add(struct command_info* c)
 
 		if (is_same == 0) {
 			out("adding new file to group [%s] -> [%s]", c->group_name, final_path);
-			json_array_append_new(c->j_group, json_string(final_path));
+			json_array_append_new(c->j_files, json_string(final_path));
 		}
 	}
 

@@ -41,10 +41,10 @@ int _remove(struct command_info* c)
 
 		// find and delete target
 		flag = 0;
-		json_array_foreach (c->j_group, index, value) {
+		json_array_foreach (c->j_files, index, value) {
 			if (_strfcmp(json_string_value(value), final_path) == 0) {
 				out("removing file from group [%s] -> [%s]", c->group_name, final_path);
-				if (json_array_remove(c->j_group, index) == -1) {
+				if (json_array_remove(c->j_files, index) == -1) {
 					errout("failed to remove index from array");
 				}
 				flag = 1;

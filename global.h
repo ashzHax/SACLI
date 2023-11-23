@@ -37,6 +37,7 @@
 #define MAX_CMD_LEN 1024
 #define MAX_SCHED_LEN 32
 #define MAX_FILENAME_LEN 256
+#define MAX_CMNT_WORD_LEN 128 // max comment word length
 
 // command modes, depending on 'action' argument user input
 // enum order must match list defined in global.c
@@ -76,7 +77,9 @@ struct command_info {
 	json_t*			j_config;						// json object for holding configuration value
 	char			cwd[MAX_PATH_LEN];				// current working directory, without root path
 	char			group_name[MAX_GROUP_NAME_LEN];	// Name of command target group
-	json_t*			j_group;						// command target group
+	json_t*			j_group;						// target group
+	json_t*			j_files;						// target group file array
+	json_t*			j_comment;						// target group comment
 };
 
 // utilities functions
