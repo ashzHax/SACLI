@@ -30,6 +30,8 @@
 #define EXIT_UNKNOWN_OPTION			-11
 #define EXIT_INVALID_OPTION			-12
 #define EXIT_ADD_FAILED				-13
+#define EXIT_COMMENT_FAILED			-14
+#define EXIT_COMMIT_FAILED			-15
 
 #define MAX_ARG_LEN 1024
 #define MAX_PATH_LEN 1024
@@ -88,7 +90,7 @@ char*	_strlow(char *s);
 char*	_strcpy(const char *s, char *d, size_t t);
 int		_strfcmp(const char *a, const char *b);
 int		_strncmp(const char *a, const char *b, size_t t);
-void	rm_whitespace(char *s);
+char*	rm_whitespace(char *s);
 char*	add_end_dir_slash(char* s, size_t max);
 int		get_file_svn_schedule(const char *s);
 char*	ss_find_nth(int nth, const char* s, const char* ss);

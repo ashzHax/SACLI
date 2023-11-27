@@ -17,6 +17,7 @@ OBJ=\
     remove.o \
     show.o \
     comment.o \
+    commit.o \
     main.o
 
 DEFINES=-DMODE_DEBUG \

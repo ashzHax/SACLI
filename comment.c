@@ -26,7 +26,7 @@ int _comment(struct command_info* c)
 
 	if (c == NULL) {
 		d("critical error, 'c' is NULL");
-		return_value = EXIT_ADD_FAILED;
+		return_value = EXIT_COMMENT_FAILED;
 		goto EXIT;
 	}
 

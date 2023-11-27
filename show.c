@@ -27,7 +27,7 @@ int _show(struct command_info* c)
 	}
 
 	out("showing files inside group [%s]:", c->group_name);
-	json_array_foreach (c->j_group, index, value) {
+	json_array_foreach (c->j_files, index, value) {
 		out("    -> [%s]", json_string_value(value));
 	}
 EXIT:

@@ -176,19 +176,21 @@ int _strncmp(const char *a, const char *b, size_t t)
  * This will modify the received string, so be cautious
  * when using this function
  */
-void rm_whitespace(char *s)
+char* rm_whitespace(char *s)
 {
 	int i = 0;
 
-	if (s == NULL) return;
+	if (s == NULL) return NULL;
 
 	for (i=_strlen(s)-1; i>=0; i++) {
 		if (s[i] == '\0' || s[i] == '\n' || s[i] == ' ') {
 			s[i] = '\0';
 		} else {
-			return;
+			break;
 		}
 	}
+
+	return s;
 }
 
 /*
