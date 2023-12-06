@@ -18,6 +18,7 @@ OBJ=\
     show.o \
     comment.o \
     commit.o \
+    clear.o \
     main.o
 
 DEFINES=-DMODE_DEBUG \
@@ -76,6 +77,9 @@ $(TARGET): $(OBJ)
 install:
 	mkdir -p /usr/bin/
 	sudo cp ./$(TARGET) /usr/bin/$(TARGET)
+	sudo cp $(LIB_DIR)/libjansson.so.4.14.0 /lib/x86_64-linux-gnu/
+	# TODO need a better implementation of this, need to get architecture by system var
+	[ -e /lib/x86_64-linux-gnu/libjansson.so.4 ] || sudo ln -s /lib/x86_64-linux-gnu/libjansson.so.4.14.0 /lib/x86_64-linux-gnu/libjansson.so.4
 
 uninstall:
 	sudo rm /usr/bin/$(TARGET)

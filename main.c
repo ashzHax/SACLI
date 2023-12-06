@@ -17,6 +17,7 @@ extern int _remove(struct command_info* c);
 extern int _show(struct command_info* c);
 extern int _comment(struct command_info* c);
 extern int _commit(struct command_info* c);
+extern int _clear(struct command_info* c);
 
 /*
  * note
@@ -31,10 +32,10 @@ const char* mode_list[MODE_MAX] = {
 	"show",
 	"comment",
 	"commit",
+	"clear",
 	"edit",
 	"help",
 	"info",
-	"clean",
 	"revert",
 	"rollback"
 };
@@ -164,7 +165,7 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 				case MODE_COMMENT:
 				case MODE_COMMIT:
 				case MODE_EDIT:
-				case MODE_CLEAN:
+				case MODE_CLEAR:
 				case MODE_REVERT: {
 					break;
 				}
@@ -500,6 +501,12 @@ int main(int argc, char** argv)
 		case MODE_COMMIT:
 		{
 			_commit(&cmd);
+			break;
+		}
+		case MODE_CLEAR:
+		{
+			_clear(&cmd);
+			save_config(&cmd);
 			break;
 		}
 		default:
