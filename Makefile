@@ -19,6 +19,7 @@ OBJ=\
     comment.o \
     commit.o \
     clear.o \
+    overwrite.o \
     main.o
 
 DEFINES=-DMODE_DEBUG \

@@ -18,6 +18,7 @@ extern int _show(struct command_info* c);
 extern int _comment(struct command_info* c);
 extern int _commit(struct command_info* c);
 extern int _clear(struct command_info* c);
+extern int _overwrite(struct command_info* c);
 
 /*
  * note
@@ -33,6 +34,8 @@ const char* mode_list[MODE_MAX] = {
 	"comment",
 	"commit",
 	"clear",
+	"overwrite",
+	"over",
 	"edit",
 	"help",
 	"info",
@@ -80,6 +83,36 @@ static void save_config(struct command_info *c)
 
 /*
  * description
+ * Creates a new group
+ * 
+ * return
+ * '0' on success
+ * '>0' on fail (will be program exit code)
+ *
+ * TODO now just seeing the structure, 
+ * should be better to create macros to access group files and comment
+ * from main group json object, instead of having references to them.
+ * This makes it hard to manage the group object, and will force a split behaviour
+ * from this group from the 'overwrite' handler action.
+ */
+int create_group(struct command_info *c)
+{
+	c->j_group = json_object();
+	c->j_files = json_array();
+	c->j_comment = json_string("");
+
+	if (c->j_group != NULL && c->j_files != NULL && c->j_comment != NULL) {
+		alert("created new group! [%s] don't forget it [-.-]", c->group_name);
+	} else {
+		errout("unable to create new group. [%s][^.-]", c->group_name);
+		return EXIT_ERROR;
+	}
+
+	return EXIT_NORMAL;
+}
+
+/*
+ * description
  * Finds the action argument, then divide option and action arguments
  * 
  * return
@@ -93,6 +126,7 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 	char argt[MAX_ARG_LEN] = {0};
 	int act = 0;
 	json_t *group_list = NULL;
+	int ret = 0;
 
 	for (i=1; i<argc; i++) {
 		_strcpy(argv[i], argt, MAX_ARG_LEN); 
@@ -180,15 +214,9 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 			c->j_group = json_object_get(group_list, c->group_name);
 
 			if (c->j_group == NULL) { // if group is not found, create it
-				c->j_group = json_object();
-				c->j_files = json_array();
-				c->j_comment = json_string("");
-
-				if (c->j_group != NULL && c->j_files != NULL && c->j_comment != NULL) {
-					alert("created new group! [%s] don't forget it [-.-]", c->group_name);
-				} else {
-					errout("unable to create new group. [%s][^.-]", c->group_name);
-					return EXIT_ERROR;
+				ret = create_group(c);
+				if (ret != EXIT_NORMAL) {
+					return ret;
 				}
 			} else { // if group is found
 				c->j_files = json_object_get(c->j_group, "files");
@@ -434,7 +462,7 @@ static void deinit(struct command_info *c)
 	free(c->opt_arg);
 	free(c->act_arg);
 
-	dj(c->j_config);
+	//dj(c->j_config);
 	json_decref(c->j_config);
 
 	d("Finished de-initalization");
@@ -509,6 +537,13 @@ int main(int argc, char** argv)
 			save_config(&cmd);
 			break;
 		}
+		case MODE_OVERWRITE:
+		case MODE_OVERWRITE_SHORT:
+		{
+			_overwrite(&cmd);
+			save_config(&cmd);
+			break;
+		}
 		default:
 		{
 			help();
@@ -546,6 +581,11 @@ END_PROG:
 			break;
 		}
 		case EXIT_HELP_PAGE: {
+			help();
+			break;
+		}
+		case EXIT_OVERWRITE_NOT_ENOUGH_ARGS:
+		case EXIT_OVERWRITE_TOO_MANY_ARGS: {
 			help();
 			break;
 		}
