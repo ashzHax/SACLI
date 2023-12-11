@@ -19,6 +19,7 @@ extern int _comment(struct command_info* c);
 extern int _commit(struct command_info* c);
 extern int _clear(struct command_info* c);
 extern int _overwrite(struct command_info* c);
+extern int _edit(struct command_info* c);
 
 /*
  * note
@@ -542,6 +543,11 @@ int main(int argc, char** argv)
 		{
 			_overwrite(&cmd);
 			save_config(&cmd);
+			break;
+		}
+		case MODE_EDIT:
+		{
+			_edit(&cmd);
 			break;
 		}
 		default:

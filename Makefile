@@ -20,6 +20,7 @@ OBJ=\
     commit.o \
     clear.o \
     overwrite.o \
+    edit.o \
     main.o
 
 DEFINES=-DMODE_DEBUG \
