@@ -51,6 +51,20 @@ const char* mode_list[MODE_MAX] = {
 static void help()
 {
 	out("usage: svm [options] [action] [...]");
+	out("< add {file} >                         Add file to the commit group");
+	out("< remove {file} >                      Remove file from the commit group");
+	out("< show >                               Show all files inside commit group");
+	out("< comment >                            Edit the comment of the commit group");
+	out("< commit >                             Start the commit process!");
+	out("< clear >                              Remove all files inside the commit group specified");
+	out("< overwrite {dest_group} {src_group} > Overwrite destination group with source group (Use with caution!)");
+	out("< edit [all/selective] >               Edit files inside the commit group (Default: 'all')");
+	out("< help >                               Shows this help page");
+	out("< revert >                             Revert all modifications done to the files inside group");
+	out("< rollback {revision} {files} >        Get the specified file at specified revision");
+	out("< auto >                               Automatically get modified files via 'svn status' (Reference paths only specified in '/.c.target' if file exists)");
+	out("< ignore {path} >                      Path to ignore when using the 'auto' command (This command creates and opens '/.c.ignore')");
+	out("< target {path} >                      Path to search for when using the command 'auto' (This command creates and opens '/.c.target')");
 }
 
 /*
@@ -548,6 +562,11 @@ int main(int argc, char** argv)
 		case MODE_EDIT:
 		{
 			_edit(&cmd);
+			break;
+		}
+		case MODE_HELP:
+		{
+			help();
 			break;
 		}
 		default:
