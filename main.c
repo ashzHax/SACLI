@@ -20,6 +20,7 @@ extern int _commit(struct command_info* c);
 extern int _clear(struct command_info* c);
 extern int _overwrite(struct command_info* c);
 extern int _edit(struct command_info* c);
+extern int _revert(struct command_info* c);
 
 /*
  * note
@@ -39,7 +40,6 @@ const char* mode_list[MODE_MAX] = {
 	"over",
 	"edit",
 	"help",
-	"info",
 	"revert",
 	"rollback"
 };
@@ -567,6 +567,11 @@ int main(int argc, char** argv)
 		case MODE_HELP:
 		{
 			help();
+			break;
+		}
+		case MODE_REVERT:
+		{
+			_revert(&cmd);
 			break;
 		}
 		default:

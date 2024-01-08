@@ -21,6 +21,7 @@ OBJ=\
     clear.o \
     overwrite.o \
     edit.o \
+    revert.o \
     main.o
 
 DEFINES=-DMODE_DEBUG \
