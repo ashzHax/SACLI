@@ -21,6 +21,7 @@ extern int _clear(struct command_info* c);
 extern int _overwrite(struct command_info* c);
 extern int _edit(struct command_info* c);
 extern int _revert(struct command_info* c);
+extern int _rollback(struct command_info* c);
 
 /*
  * note
@@ -41,7 +42,9 @@ const char* mode_list[MODE_MAX] = {
 	"edit",
 	"help",
 	"revert",
-	"rollback"
+	"rollback",
+	"auto",
+	"ignore"
 };
 
 /*
@@ -64,7 +67,6 @@ static void help()
 	out("< rollback {revision} {files} >        Get the specified file at specified revision");
 	out("< auto >                               Automatically get modified files via 'svn status' (Reference paths only specified in '/.c.target' if file exists)");
 	out("< ignore {path} >                      Path to ignore when using the 'auto' command (This command creates and opens '/.c.ignore')");
-	out("< target {path} >                      Path to search for when using the command 'auto' (This command creates and opens '/.c.target')");
 }
 
 /*
@@ -574,6 +576,11 @@ int main(int argc, char** argv)
 			_revert(&cmd);
 			break;
 		}
+		case MODE_ROLLBACK:
+		{
+			_rollback(&cmd);
+			break;
+		}
 		default:
 		{
 			help();
@@ -616,6 +623,10 @@ END_PROG:
 		}
 		case EXIT_OVERWRITE_NOT_ENOUGH_ARGS:
 		case EXIT_OVERWRITE_TOO_MANY_ARGS: {
+			help();
+			break;
+		}
+		case EXIT_ROLLBACK_NOT_ENOUGH_ARGS: {
 			help();
 			break;
 		}

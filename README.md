@@ -26,7 +26,6 @@ Project will be built based on the svn command version 1.14.1 (r1886195)
 | rollback  | {revision} {files}         | Get the specified file at specified revision.                                                                     |
 | auto      |                            | Automatically get modified files via 'svn status' (Reference paths only specified in '/.c.target' if file exists) |
 | ignore    | {path}                     | Path to ignore when using the 'auto' command (This command creates and opens '/.c.ignore')                        |
-| target    | {path}                     | Path to search for when using the command 'auto' (This command creates and opens '/.c.target')                    |
   
 # Options
 | Action  | Option | Explaination                                          |

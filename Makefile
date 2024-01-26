@@ -22,11 +22,12 @@ OBJ=\
     overwrite.o \
     edit.o \
     revert.o \
+    rollback.o \
     main.o
 
-DEFINES=-DMODE_DEBUG \
-        -DPROG_NAME=$(TARGET) \
-        -DAUTHOR=$(AUTHORS)
+DEFINES=-DPROG_NAME=$(TARGET) \
+		-DMODE_DEBUG \
+		-DAUTHOR=$(AUTHORS)
 
 all: create_dir copy_header install_lib $(TARGET)
 
