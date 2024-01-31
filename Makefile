@@ -23,6 +23,7 @@ OBJ=\
     edit.o \
     revert.o \
     rollback.o \
+    auto.o \
     main.o
 
 DEFINES=-DPROG_NAME=$(TARGET) \

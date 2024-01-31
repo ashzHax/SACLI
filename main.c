@@ -22,6 +22,7 @@ extern int _overwrite(struct command_info* c);
 extern int _edit(struct command_info* c);
 extern int _revert(struct command_info* c);
 extern int _rollback(struct command_info* c);
+extern int _auto(struct command_info* c);
 
 /*
  * note
@@ -428,6 +429,23 @@ static char* get_cwd_no_root(char* s, size_t n, char* root)
 
 /*
  * description
+ * Gets the 'auto' command target file's full path
+ *
+ * return
+ * The parameter buffer pointer is returned on success
+ * NULL is returned on fail
+ */
+static char* get_auto_target_file(char* s, size_t n, char* root)
+{
+	if (s == NULL || n <= 0 || root == NULL) return NULL;
+
+	snprintf(s, n, "%s/.c.target", root);
+
+	return s;
+}
+
+/*
+ * description
  * Initiate variables and functionality
  * 
  * return
@@ -459,6 +477,12 @@ static int init(struct command_info *c)
 
 	// get current working directory
 	if (get_cwd_no_root(c->cwd, MAX_PATH_LEN, c->svn_root_path) == NULL) {
+		ret = EXIT_INIT_FAILED;
+		goto EXIT;
+	}
+
+	// get auto target file
+	if (get_auto_target_file(c->auto_target_path, MAX_PATH_LEN, c->svn_root_path) == NULL) {
 		ret = EXIT_INIT_FAILED;
 		goto EXIT;
 	}
@@ -579,6 +603,11 @@ int main(int argc, char** argv)
 		case MODE_ROLLBACK:
 		{
 			_rollback(&cmd);
+			break;
+		}
+		case MODE_AUTO:
+		{
+			_auto(&cmd);
 			break;
 		}
 		default:

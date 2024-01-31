@@ -40,6 +40,7 @@
 #define EXIT_REVERT_FAILED				-21
 #define EXIT_ROLLBACK_FAILED			-22
 #define EXIT_ROLLBACK_NOT_ENOUGH_ARGS	-23
+#define EXIT_AUTO_FAILED				-24
 
 #define MAX_ARG_LEN 1024
 #define MAX_PATH_LEN 1024
@@ -69,7 +70,6 @@ enum {
 	MODE_ROLLBACK,
 	MODE_AUTO,
 	MODE_IGNORE,
-	MODE_TARGET,
 	MODE_MAX
 };
 
@@ -95,6 +95,7 @@ struct command_info {
 	json_t*			j_group;						// target group
 	json_t*			j_files;						// target group file array
 	json_t*			j_comment;						// target group comment
+	char			auto_target_path[MAX_PATH_LEN]; // 'auto' command target list
 };
 
 // utilities functions
