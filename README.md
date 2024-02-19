@@ -11,21 +11,21 @@ Project will be built based on the svn command version 1.14.1 (r1886195)
   
 # Usage
 **svm { options } \[ action \] { arguments }**
-| Action    | Main Argument              | Explaination                                                                                                      |
-| :---      | :---                       | :---                                                                                                              |
-| add       | {file/directory}           | Add file to the commit group.                                                                                     |
-| remove    | {file/directory}           | Remove file from the commit group.                                                                                |
-| show      |                            | Show all files inside commit group.                                                                               |
-| comment   |                            | Edit the comment of the commit group.                                                                             |
-| commit    |                            | Start the commit process!                                                                                         |
-| clear     |                            | Remove all files inside the commit group specified.                                                               |
-| overwrite | {dest\_group} {src\_group} | Overwrite destination group with source group (Use with caution!)                                                 |
-| edit      | \[all/selective\]          | Edit files inside the commit group. (Default: 'all')                                                              |
-| help      |                            | Show help page.                                                                                                   |
-| revert    |                            | Revert all modifications done to the files inside group.                                                          |
-| rollback  | {revision} {files}         | Get the specified file at specified revision.                                                                     |
-| auto      |                            | Automatically get modified files via 'svn status' (Reference paths only specified in '/.c.target' if file exists) |
-| target    | {path}                     | Path to search for when using the command 'auto' (This command creates and opens '/.c.target')                    |
+| Action    | Main Argument              | Explaination                                                                                                                                           |
+| :---      | :---                       | :---                                                                                                                                                   |
+| add       | {file/directory}           | Add file to the commit group.                                                                                                                          |
+| remove    | {file/directory}           | Remove file from the commit group.                                                                                                                     |
+| show      |                            | Show all files inside commit group.                                                                                                                    |
+| comment   |                            | Edit the comment of the commit group.                                                                                                                  |
+| commit    |                            | Start the commit process!                                                                                                                              |
+| clear     |                            | Remove all files inside the commit group specified.                                                                                                    |
+| overwrite | {dest\_group} {src\_group} | Overwrite destination group with source group (Use with caution!)                                                                                      |
+| edit      | \[all/selective\]          | Edit files inside the commit group. (Default: 'all')                                                                                                   |
+| help      |                            | Show help page.                                                                                                                                        |
+| revert    |                            | Revert all modifications done to the files inside group.                                                                                               |
+| rollback  | {revision} {files}         | Get the specified file at specified revision.                                                                                                          |
+| auto      |                            | Automatically get modified files via 'svn status' (Reference paths only specified in '/.c.target' if file exists, otherwise runs 'svn status' at root) |
+| target    | {path}                     | Path to search for when using the command 'auto' (This command creates and opens '/.c.target')                                                         |
   
 # Options
 | Action  | Option | Explaination                                          |
