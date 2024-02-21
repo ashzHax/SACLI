@@ -23,6 +23,7 @@ extern int _edit(struct command_info* c);
 extern int _revert(struct command_info* c);
 extern int _rollback(struct command_info* c);
 extern int _auto(struct command_info* c);
+extern int _target(struct command_info* c);
 
 /*
  * note
@@ -45,7 +46,7 @@ const char* mode_list[MODE_MAX] = {
 	"revert",
 	"rollback",
 	"auto",
-	"ignore"
+	"target"
 };
 
 /*
@@ -67,7 +68,7 @@ static void help()
 	out("< revert >                             Revert all modifications done to the files inside group");
 	out("< rollback {revision} {files} >        Get the specified file at specified revision");
 	out("< auto >                               Automatically get modified files via 'svn status' (Reference paths only specified in '/.c.target' if file exists)");
-	out("< ignore {path} >                      Path to ignore when using the 'auto' command (This command creates and opens '/.c.ignore')");
+	out("< target {path} >                      Path to search for when using the command 'auto' (This command creates and opens '/.c.target')");
 }
 
 /*
@@ -439,7 +440,8 @@ static char* get_auto_target_file(char* s, size_t n, char* root)
 {
 	if (s == NULL || n <= 0 || root == NULL) return NULL;
 
-	snprintf(s, n, "%s/.c.target", root);
+	// path slash already exists
+	snprintf(s, n, "%s.c.target", root);
 
 	return s;
 }
@@ -608,6 +610,11 @@ int main(int argc, char** argv)
 		case MODE_AUTO:
 		{
 			_auto(&cmd);
+			break;
+		}
+		case MODE_TARGET:
+		{
+			_target(&cmd);
 			break;
 		}
 		default:

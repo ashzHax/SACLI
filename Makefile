@@ -24,6 +24,7 @@ OBJ=\
     revert.o \
     rollback.o \
     auto.o \
+    target.o \
     main.o
 
 DEFINES=-DPROG_NAME=$(TARGET) \
