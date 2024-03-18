@@ -24,6 +24,7 @@ extern int _revert(struct command_info* c);
 extern int _rollback(struct command_info* c);
 extern int _auto(struct command_info* c);
 extern int _target(struct command_info* c);
+extern int _info(struct command_info* c);
 
 /*
  * note
@@ -32,7 +33,6 @@ extern int _target(struct command_info* c);
  */
 const char* mode_list[MODE_MAX] = {
 	"add",
-	"a",
 	"remove",
 	"rm",
 	"show",
@@ -46,7 +46,8 @@ const char* mode_list[MODE_MAX] = {
 	"revert",
 	"rollback",
 	"auto",
-	"target"
+	"target",
+	"info"
 };
 
 /*
@@ -73,30 +74,34 @@ static void help()
 
 /*
  * description
- * Save 'c->j_group' as 'c->group_name' to c->j_config.
- * Dump 'c->j_config' to file.
+ * Save 'c->json_grp' as 'c->grp_name' to c->json_cfg
+ * Dump 'c->json_cfg' to file
  */
 static void save_config(struct command_info *c)
 {
 	json_t *group_list = NULL;
 
-	if (c == NULL) return;
-
-	group_list = json_object_get(c->j_config, "groups");
-	if (group_list == NULL) {
-		errout("Unable to get 'groups' object, critical error");
+	if (c == NULL) {
 		return;
 	}
 
-	json_object_set(c->j_group, "files", c->j_files);
-	json_object_set(c->j_group, "comment", c->j_comment);
-	json_object_set(group_list, c->group_name, c->j_group);
-	dj(c->j_config);
+	group_list = json_object_get(c->json_cfg, "groups");
 
-	if (json_dump_file(c->j_config, c->config_path, JSON_INDENT(1)) < 0) {
-		errout("Failed to dump configuration data to file, critical error");
+	if (group_list == NULL) {
+		errout("unable to get 'groups' object");
+		return;
+	}
+
+	// since 'c->json_grp' and 'c->json_files' might be a new object,
+	// always update the value
+	json_object_set(c->json_grp, "files", c->json_files);
+	json_object_set(group_list, c->grp_name, c->json_grp);
+	dj(c->json_cfg);
+
+	if (json_dump_file(c->json_cfg, c->config_path, JSON_INDENT(1)) < 0) {
+		errout("failed to dump configuration data to file");
 	} else {
-		d("Data dump successful");
+		d("data dump successful");
 	}
 }
 
@@ -107,27 +112,81 @@ static void save_config(struct command_info *c)
  * return
  * '0' on success
  * '>0' on fail (will be program exit code)
- *
- * TODO now just seeing the structure, 
- * should be better to create macros to access group files and comment
- * from main group json object, instead of having references to them.
- * This makes it hard to manage the group object, and will force a split behaviour
- * from this group from the 'overwrite' handler action.
  */
 int create_group(struct command_info *c)
 {
-	c->j_group = json_object();
-	c->j_files = json_array();
-	c->j_comment = json_string("");
+	c->json_grp = json_object();
+	c->json_files = json_array();
 
-	if (c->j_group != NULL && c->j_files != NULL && c->j_comment != NULL) {
-		alert("created new group! [%s] don't forget it [-.-]", c->group_name);
+	if (c->json_grp != NULL && c->json_files != NULL) {
+		alert("created new group [%s]", c->grp_name);
 	} else {
-		errout("unable to create new group. [%s][^.-]", c->group_name);
-		return EXIT_ERROR;
+		errout("unable to create new group [%s]", c->grp_name);
+		return EXIT_FAILED_TO_CREATE_GROUP;
 	}
 
 	return EXIT_NORMAL;
+}
+
+
+/*
+ * description
+ * Option handler for '-h'
+ *
+ * return
+ * '0' on success
+ * '>0' on fail (will be program exit code)
+ */
+int option_handle_help()
+{
+	return EXIT_HELP_PAGE;
+}
+
+/*
+ * description
+ * Option handler for '-g'
+ *
+ * return
+ * '0' on success
+ * '>0' on fail (will be program exit code)
+ */
+int option_handle_group(struct command_info *c)
+{
+	json_t *group_list = NULL;
+	int ret = EXIT_NORMAL;
+
+	// check if option is valid for current mode
+	switch (c->mode) {
+		case MODE_ADD:
+		case MODE_REMOVE:
+		case MODE_SHOW:
+		case MODE_COMMENT:
+		case MODE_COMMIT:
+		case MODE_EDIT:
+		case MODE_CLEAR:
+		case MODE_REVERT: 
+		case MODE_AUTO: {
+			break;
+		}
+		default: {
+			errout("invalid option for this operation [%s]", mode_list[c->mode]);
+			return EXIT_INVALID_OPTION;
+		}
+	}
+
+	// check validity of received data
+	group_list = json_object_get(c->json_cfg, "groups");
+	c->json_grp = json_object_get(group_list, c->grp_name);
+
+	if (c->json_grp == NULL) {
+		// if group is not found, create it
+		ret = create_group(c);
+	} else {
+		// if group is found
+		c->json_files = json_object_get(c->json_grp, "files");
+	}
+
+	return ret;
 }
 
 /*
@@ -143,126 +202,112 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 	int i = 0;
 	int j = 0;
 	char argt[MAX_ARG_LEN] = {0};
-	int act = 0;
+	int action = 0;
 	json_t *group_list = NULL;
-	int ret = 0;
+	int ret = EXIT_NORMAL;
 
 	for (i=1; i<argc; i++) {
 		_strcpy(argv[i], argt, MAX_ARG_LEN); 
 		_strlow(argt);
-		d("Checking argument [%s]", argt);
+		d("validating argument [%s]", argt);
 
 		// finding action parameter
 		for (j=0; j<MODE_MAX; j++) {
 			if (_strfcmp(argt, mode_list[j]) == 0) {
 				c->mode = j;
+				d("found mode [%s]", mode_list[j]);
 				break;
 			}
 		}
 
 		if (c->mode != MODE_INVALID) {
-			c->act_arg_cnt = argc - i - 1; // cannot go below 0 (in theory)
-			act = i;
+			// cannot go below 0 (in theory)
+			c->act_arg_cnt = argc - i - 1;
+			action = i;
 			break;
 		}
 		c->opt_arg_cnt++;
 	}
-	d("act[%d] opt_cnt[%d] act_cnt[%d]", act, c->opt_arg_cnt, c->act_arg_cnt);
+	d("action[%d] opt_cnt[%d] act_cnt[%d]", action, c->opt_arg_cnt, c->act_arg_cnt);
 
 	if (c->mode == MODE_INVALID) {
 		return EXIT_ACTION_NOT_FOUND;
 	}
 
 	c->opt_arg = (const char**)malloc(sizeof(const char*)*c->opt_arg_cnt);
-	for (i=0; i < c->opt_arg_cnt; i++) {
+	for (i=0; i<c->opt_arg_cnt; i++) {
 		c->opt_arg[i] = argv[i+1];
 		d("opt_args[%d] = argv[%d] = %s", i, i+1, argv[i+1]);
 	}
 
 	c->act_arg = (const char**)malloc(sizeof(const char*)*c->act_arg_cnt);
-	for (i=0; i < c->act_arg_cnt; i++) {
-		c->act_arg[i] = argv[act+1+i];
-		d("act_args[%d] = argv[%d] = %s", i, act+1+i, argv[act+1+i]);
+	for (i=0; i<c->act_arg_cnt; i++) {
+		c->act_arg[i] = argv[action+1+i];
+		d("act_args[%d] = argv[%d] = %s", i, action+1+i, argv[action+1+i]);
 	}
 
-	// Now, parsing the options. How to parse the options?
-	// First, organize all options into the proper data structure.
-	// Get the option indicator, then parse the backdata (if it exists) to a variable.
-	// Second, make sure the options received are valid for the current mode.
-	// Third, check the validity of the data received
-	// Fourth, if data is not used else where, use it now
-	// TODO: could optimize this code, by functionizing the actions
+	/*
+	 * How to parse the options?
+	 * First, organize all options into the proper data structure
+	 * Get the option indicator, then parse the backdata to a variable
+	 * Second, make sure the options received are valid for the current mode
+	 * Third, check the validity of the data received
+	 * Fourth, if data is not used else where, use it now
+	 */
 	for (i=1; i < c->opt_arg_cnt+1; i++) {
 		if (_strncmp(argv[i], "-h", (size_t)2) == 0) {
-			d("Got [-h] option!");
-			return EXIT_HELP_PAGE;
-		} else if (_strncmp(argv[i], "-g", (size_t)2) == 0) {
-			d("Got [-g] option!");
+			d("got [-h] option");
 
-			if (_strlen(argv[i]) > 2) { // group name is in current option argument
-				snprintf(c->group_name, MAX_GROUP_NAME_LEN, "%s", argv[i]+2);
-			} else { // group name is in a separate option argument
-				if (i >= c->opt_arg_cnt) { // check if there are no more arguments
+			ret = option_handle_help();
+		} else if (_strncmp(argv[i], "-g", (size_t)2) == 0) {
+			d("got [-g] option");
+
+			if (_strlen(argv[i]) > 2) {
+				// group name is in current option argument
+				snprintf(c->grp_name, MAX_GROUP_NAME_LEN, "%s", argv[i]+2);
+			} else {
+				// group name is in a separate option argument
+
+				// check if there are no more arguments
+				if (i >= c->opt_arg_cnt) {
+					// has '-g' option, but no group name was included
 					return EXIT_NO_GROUP_NAME;
 				}
+				
+				// skip to the next option argument, which is the group name
 				i++;
-				snprintf(c->group_name, MAX_GROUP_NAME_LEN, "%s", argv[i]);
-			}
-			d("Option group name [%s]", c->group_name);
-			
-			// Step 2: Check if option is valid for current mode
-			switch (c->mode) {
-				case MODE_ADD:
-				case MODE_REMOVE:
-				case MODE_SHOW:
-				case MODE_COMMENT:
-				case MODE_COMMIT:
-				case MODE_EDIT:
-				case MODE_CLEAR:
-				case MODE_REVERT: {
-					break;
-				}
-				default: {
-					errout("invalid option for this action. [%s]", argv[i]);
-					return EXIT_INVALID_OPTION;
-				}
-			}
 
-			// Step 3: Check validity of received data
-			group_list = json_object_get(c->j_config, "groups");
-			c->j_group = json_object_get(group_list, c->group_name);
-
-			if (c->j_group == NULL) { // if group is not found, create it
-				ret = create_group(c);
-				if (ret != EXIT_NORMAL) {
-					return ret;
-				}
-			} else { // if group is found
-				c->j_files = json_object_get(c->j_group, "files");
-				c->j_comment = json_object_get(c->j_group, "comment");
+				snprintf(c->grp_name, MAX_GROUP_NAME_LEN, "%s", argv[i]);
 			}
+			d("found group name [%s] from option", c->grp_name);
+
+			ret = option_handle_group(c);
 		} else {
-			errout("idk what this option is. [%s]", argv[i]);
-			return EXIT_UNKNOWN_OPTION;
+			errout("unknown option [%s] found", argv[i]);
+			ret = EXIT_ERROR_UNKNOWN_OPTION;
+
+		}
+		if (ret < EXIT_NORMAL) {
+			return ret;
 		}
 	}
 
-	// if no group was found by this point, set 'j_config' to default group
-	if (c->j_group == NULL) {
-		snprintf(c->group_name, MAX_GROUP_NAME_LEN, "default");
+	// if no group was found by this point, set 'json_cfg' to default group
+	if (c->json_grp == NULL) {
+		snprintf(c->grp_name, MAX_GROUP_NAME_LEN, "default");
 
-		group_list = json_object_get(c->j_config, "groups");
-		c->j_group = json_object_get(group_list, c->group_name);
-		c->j_files = json_object_get(c->j_group, "files");
-		c->j_comment = json_object_get(c->j_group, "comment");
+		group_list = json_object_get(c->json_cfg, "groups");
 
-		if (c->j_group == NULL) {
-			errout("Unable to get default group!");
-			return EXIT_ERROR;
+		c->json_grp = json_object_get(group_list, c->grp_name);
+		c->json_files = json_object_get(c->json_grp, "files");
+
+		if (c->json_grp == NULL) {
+			errout("unable to get group [default]");
+			return EXIT_ERROR_GROUP_GET_FAILED;
 		}
 	}
 
-	return 0;
+	return EXIT_NORMAL;
 }
 
 /*
@@ -277,7 +322,9 @@ static int get_svn_rd(char *buf, size_t len)
 {
 	FILE *pp = NULL;
 
-	if (buf == NULL || len <= 0) return -1;
+	if (buf == NULL || len <= 0) {
+		return EXIT_ERROR;
+	}
 
 	pp = popen("svn info 2> /dev/null | grep \"Working Copy Root Path\" | awk \'{print $5}\'", "r");
 	if (pp) {
@@ -285,14 +332,13 @@ static int get_svn_rd(char *buf, size_t len)
 		pclose(pp);
 	}
 
-	if (_strlen(buf) <= 0) return -1;
+	if (_strlen(buf) <= 0) {
+		return EXIT_ERROR;
+	}
 
 	rm_whitespace(buf);
-	add_end_dir_slash(buf, len);
 
-	d("SVN root directory path [%s]", buf);
-
-	return 0;
+	return EXIT_NORMAL;
 }
 
 /*
@@ -309,7 +355,7 @@ static int create_config_file(struct command_info *c)
 	fp = fopen(c->config_path, "w+");
 	if (fp == NULL) {
 		errout("failed to open/create configuration file");
-		return -1;
+		return EXIT_CONFIG_FILE_OPEN_FAIL;
 	}
 
 	new = json_object();
@@ -317,30 +363,29 @@ static int create_config_file(struct command_info *c)
 	_default = json_object();
 
 	if (new == NULL || group == NULL) {
-		errout("failed to create json object");
-		return -1;
+		errout("json_object() failed");
+		return EXIT_ERROR;
 	}
 
-	// OBJECT -> groups -> default -> files -> []
+	// object -> groups -> default -> files -> []
 	json_object_set(_default, "files", json_array());
-	json_object_set(_default, "comment", json_string(""));
 	json_object_set(group, "default", _default);
 	json_object_set(new, "groups", group);
 
-	json_dumpf(new, fp, JSON_INDENT(4));
+	json_dumpf(new, fp, JSON_INDENT(1));
 
+	// close
 	json_decref(new);
 	fclose(fp);
 
-	return 0;
+	return EXIT_NORMAL;
 }
 
 /*
  * description
- * For getting configuration file.
- * Creates the file with default values if it doesn't exists with default
- * JSON values.
- * Reads the file and parse it into a 'json_t' object.
+ * For getting configuration file
+ * Creates the file with default values if it doesn't exist
+ * Reads the file and parse it into a 'json_t' object
  *
  * return
  * '0' on success
@@ -351,22 +396,24 @@ static int get_config(struct command_info *c)
 	FILE *fp = NULL;
 	json_error_t error; // jansson error handling
 	int len = 0;
+	int ret = EXIT_NORMAL;
 	
 	// get configuration file path
 	if (c->config_path == NULL) {
-		errout("malloc() failed");
-		return -1;
+		errout("config_path is NULL (memory allocation failed)");
+		return EXIT_ERROR;
 	}
 
-	len = _strlen(c->svn_root_path)+_strlen(CFG_FILE)+2;
-	snprintf(c->config_path, len, "%s%s", c->svn_root_path, CFG_FILE);
-	d("Configuration file path [%s]", c->config_path);
+	len = _strlen(c->root_path) + _strlen(CFG_FILE) + 2;
+	snprintf(c->config_path, len, "%s/%s", c->root_path, CFG_FILE);
+	d("configuration file path [%s]", c->config_path);
 
 	// check if configuration file exists
 	// if not, create file with default values
 	if (access(c->config_path, F_OK) != 0) {
-		if (create_config_file(c) < 0) {
-			return -1;
+		ret = create_config_file(c);
+		if (ret < EXIT_NORMAL) {
+			return ret;
 		}
 	}
 
@@ -374,15 +421,19 @@ static int get_config(struct command_info *c)
 	fp = fopen(c->config_path, "r");
 	if (fp == NULL) {
 		errout("failed to open configuration file");
-		return -1;
+		return EXIT_ERROR;
 	}
 
 	// load configuration file as JSON
-	c->j_config = json_loadf(fp, (JSON_DECODE_ANY | JSON_DISABLE_EOF_CHECK), &error);
-	fclose(fp);
-	dj(c->j_config);
+	c->json_cfg = json_loadf(fp, (JSON_DECODE_ANY | JSON_DISABLE_EOF_CHECK), &error);
 
-	return 0;
+	// close
+	fclose(fp);
+
+	// debug output JSON structure
+	dj(c->json_cfg);
+
+	return ret;
 }
 
 /*
@@ -397,29 +448,30 @@ static char* get_cwd_no_root(char* s, size_t n, char* root)
 {
 	char path[MAX_PATH_LEN] = {0};
 	size_t root_len = 0;
-	size_t path_len = 0;
 
-	if (s == NULL || n <= 0) return NULL;
+	if (s == NULL || n <= 0) {
+		return NULL;
+	}
 
 	if (root != NULL) {
 		root_len = _strlen(root);
 	}
 
 	if (getcwd(path, sizeof(path)) != NULL) {
-		path_len = _strlen(path);
+		// remove slash to the end of 'path' if it exists
+		rm_slash(path);
+		d("getcwd() result (after rm_slash()) [%s]", path);
 
-		// add slash to the end of 'p' because
-		// getcwd() does not return string with a slash
-		if (path_len+2 < sizeof(path) && path[path_len-1] != '/') {
-			path[path_len] = '/';
-			path[path_len+1] = '\0';
-		}
-
-		// need to check root_len first
+		// need to check root_len
 		if (root_len > 0 && _strncmp(root, path, root_len) == 0) {
-			snprintf(s, n, "%s", (path + root_len));
+			snprintf(s, n, "%s", (path+root_len+1));
 		} else {
 			snprintf(s, n, "%s", path);
+		}
+
+		// in case the current location is svn root
+		if (_strlen(s) <= 0) {
+			snprintf(s, n, ".");
 		}
 
 		return s;
@@ -438,10 +490,11 @@ static char* get_cwd_no_root(char* s, size_t n, char* root)
  */
 static char* get_auto_target_file(char* s, size_t n, char* root)
 {
-	if (s == NULL || n <= 0 || root == NULL) return NULL;
+	if (s == NULL || n <= 0 || root == NULL) {
+		return NULL;
+	}
 
-	// path slash already exists
-	snprintf(s, n, "%s.c.target", root);
+	snprintf(s, n, "%s/%s", root, TRG_FILE);
 
 	return s;
 }
@@ -456,65 +509,69 @@ static char* get_auto_target_file(char* s, size_t n, char* root)
  */
 static int init(struct command_info *c)
 {
-	int ret = EXIT_NORMAL; // return value
+	int ret = EXIT_NORMAL;
 
-	if (c == NULL) return EXIT_INIT_FAILED;
+	if (c == NULL) {
+		return EXIT_ERROR;
+	}
 
 	// initialize 'struct command_info'
 	memset(c, 0x0, sizeof(struct command_info));
 	c->mode = MODE_INVALID; // -1
 
 	// get root path
-	if (get_svn_rd(c->svn_root_path, MAX_PATH_LEN) < 0) {
-		ret = EXIT_NOT_IN_SVN_REPO;
+	if (get_svn_rd(c->root_path, MAX_PATH_LEN) < EXIT_NORMAL) {
+		errout("svn root path get failed, (maybe not inside a svn repository?)");
+		ret = EXIT_SVN_PATH_GET_FAIL;
 		goto EXIT;
 	}
+	d("svn root path [%s]", c->root_path);
 
 	// get configuration file
-	ret = get_config(c);
-	if (ret < 0) {
-		ret = EXIT_FAILED_TO_GET_CONFIG;
+	if (get_config(c) < EXIT_NORMAL) {
+		ret = EXIT_CONFIG_GET_FAIL;
 		goto EXIT;
 	}
 
 	// get current working directory
-	if (get_cwd_no_root(c->cwd, MAX_PATH_LEN, c->svn_root_path) == NULL) {
-		ret = EXIT_INIT_FAILED;
+	if (get_cwd_no_root(c->cwd, MAX_PATH_LEN, c->root_path) == NULL) {
+		ret = EXIT_GET_CWD_NO_RD_FAIL;
 		goto EXIT;
 	}
+	d("current working directory [%s]", c->cwd);
 
 	// get auto target file
-	if (get_auto_target_file(c->auto_target_path, MAX_PATH_LEN, c->svn_root_path) == NULL) {
-		ret = EXIT_INIT_FAILED;
+	if (get_auto_target_file(c->auto_path, MAX_PATH_LEN, c->root_path) == NULL) {
+		ret = EXIT_AUTO_FILE_GET_FAIL;
 		goto EXIT;
 	}
+	d("auto target list file path [%s]", c->auto_path);
 
 EXIT:
-	d("Finished initalization [%d]", ret);
+	d("finished initalization with code [%d]", ret);
 	return ret;
 }
 
 /*
  * description
- * The de-initiation function.
+ * The de-initiation function
  * Very important if you don't want un-managed memory
- * lingering in your system.
+ * lingering in your system
  */
 static void deinit(struct command_info *c)
 {
 	free(c->opt_arg);
 	free(c->act_arg);
 
-	//dj(c->j_config);
-	json_decref(c->j_config);
+	json_decref(c->json_cfg);
 
-	d("Finished de-initalization");
+	d("finished de-initalization");
 }
 
 /*
  * description
- * It's the most important function.
- * Thats it.
+ * It's the most important function
+ * Thats it for the explaination
  */
 int main(int argc, char** argv)
 {
@@ -523,11 +580,16 @@ int main(int argc, char** argv)
 	int i = 0;
 
 	exit_code = init(&cmd);
-	if (exit_code < 0) goto END_PROG;
+	if (exit_code < EXIT_NORMAL) {
+		goto END_PROG;
+	}
 
 	exit_code = option_parse(&cmd, argc, argv);
-	if (exit_code < 0) goto END_PROG;
+	if (exit_code < EXIT_NORMAL) {
+		goto END_PROG;
+	}
 
+	// command_info structure debug
 	d("cmd.mode [%d]", cmd.mode);
 	d("cmd.opt_arg_cnt [%d]", cmd.opt_arg_cnt);
 	d("cmd.act_arg_cnt [%d]", cmd.act_arg_cnt);
@@ -537,59 +599,62 @@ int main(int argc, char** argv)
 	for (i=0; i<cmd.act_arg_cnt; i++) {
 		d("cmd.act_arg[%d] [%s]", i, cmd.act_arg[i]);
 	}
-	d("cmd.svn_root_path [%s]", cmd.svn_root_path);
+	d("cmd.root_path [%s]", cmd.root_path);
 	d("cmd.config_path [%s]", cmd.config_path);
 	d("cmd.cwd [%s]", cmd.cwd);
-	d("cmd.group_name [%s]", cmd.group_name);
+	d("cmd.grp_name [%s]", cmd.grp_name);
+	d("cmd.auto_path [%s]", cmd.auto_path);
 
-	// note: never delete the json array on clean. just pop the data out
+	// note: never delete the json array on clean.
+	// just pop the data out
 	switch(cmd.mode) {
 		case MODE_ADD:
-		case MODE_ADD_SHORT:
 		{
-			_add(&cmd);
+			exit_code = _add(&cmd);
 			save_config(&cmd);
 			break;
 		}
 		case MODE_REMOVE:
 		case MODE_REMOVE_SHORT:
 		{
-			_remove(&cmd);
+			exit_code = _remove(&cmd);
 			save_config(&cmd);
 			break;
 		}
 		case MODE_SHOW:
 		{
-			_show(&cmd);
+			exit_code = _show(&cmd);
 			break;
 		}
 		case MODE_COMMENT:
 		{
-			_comment(&cmd);
+			exit_code = _comment(&cmd);
 			save_config(&cmd);
 			break;
 		}
 		case MODE_COMMIT:
 		{
-			_commit(&cmd);
+			exit_code = _commit(&cmd);
 			break;
 		}
 		case MODE_CLEAR:
 		{
-			_clear(&cmd);
+			exit_code = _clear(&cmd);
 			save_config(&cmd);
 			break;
 		}
 		case MODE_OVERWRITE:
 		case MODE_OVERWRITE_SHORT:
 		{
-			_overwrite(&cmd);
-			save_config(&cmd);
+			exit_code = _overwrite(&cmd);
+			// will save using a custom function, since this will break if default
+			// group is the destination
+			//save_config(&cmd);
 			break;
 		}
 		case MODE_EDIT:
 		{
-			_edit(&cmd);
+			exit_code = _edit(&cmd);
 			break;
 		}
 		case MODE_HELP:
@@ -599,29 +664,35 @@ int main(int argc, char** argv)
 		}
 		case MODE_REVERT:
 		{
-			_revert(&cmd);
+			exit_code = _revert(&cmd);
 			break;
 		}
 		case MODE_ROLLBACK:
 		{
-			_rollback(&cmd);
+			exit_code = _rollback(&cmd);
 			break;
 		}
 		case MODE_AUTO:
 		{
-			_auto(&cmd);
+			exit_code = _auto(&cmd);
+			save_config(&cmd);
 			break;
 		}
 		case MODE_TARGET:
 		{
-			_target(&cmd);
+			exit_code = _target(&cmd);
+			break;
+		}
+		case MODE_INFO:
+		{
+			exit_code = _info(&cmd);
 			break;
 		}
 		default:
 		{
 			help();
+			errout("no operation defined, ending program");
 			exit_code = EXIT_ACTION_NOT_FOUND;
-			d("found no action argument, ending program");
 		}
 	}
 
@@ -629,13 +700,13 @@ END_PROG:
 	deinit(&cmd);
 
 	switch(exit_code) {
-		case EXIT_NOT_IN_SVN_REPO: {
-			errout("not inside a SVN repository! [-.-]");
-			break;
-		}
-		case EXIT_ACTION_NOT_FOUND: {
-			errout("no action received. [-.-]");
-			help();
+		case EXIT_AUTO_FILE_GET_FAIL:
+		case EXIT_CONFIG_GET_FAIL:
+		case EXIT_ADD_ERROR:
+		case EXIT_ADD_ERROR_INVALID_PATH:
+		case EXIT_ADD_ERROR_DUPLICATE_PATH:
+		case EXIT_REMOVE_ERROR_FILE_NOT_FOUND:
+		case EXIT_SVN_PATH_GET_FAIL: {
 			break;
 		}
 		case EXIT_NO_GROUP_NAME: {
@@ -643,7 +714,7 @@ END_PROG:
 			help();
 			break;
 		}
-		case EXIT_UNKNOWN_OPTION: {
+		case EXIT_ERROR_UNKNOWN_OPTION: {
 			errout("unknown option received. [o.O]");
 			help();
 			break;
@@ -657,21 +728,29 @@ END_PROG:
 			help();
 			break;
 		}
-		case EXIT_OVERWRITE_NOT_ENOUGH_ARGS:
-		case EXIT_OVERWRITE_TOO_MANY_ARGS: {
+		case EXIT_OW_ERROR_TOO_MANY_ARGS: {
 			help();
 			break;
 		}
+		case EXIT_OW_ERROR_NOT_ENOUGH_ARGS:
 		case EXIT_ROLLBACK_NOT_ENOUGH_ARGS: {
 			help();
+			errout("not enough arguments to run this command");
+			break;
+		}
+		case EXIT_ACTION_NOT_FOUND: {
+			help();
+			errout("no action found");
+			// TODO: delete 
+			exit_code = 0;
 			break;
 		}
 		case EXIT_NORMAL: {
-			out("ending with no errors, what a surprise. [^.^][%d]", exit_code);
+			out("ending program");
 			break;
 		}
 		default: {
-			out("Unknown exit code.");
+			errout("undefined exit code [%d]", exit_code);
 		}
 	}
 

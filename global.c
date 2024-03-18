@@ -182,7 +182,7 @@ char* rm_whitespace(char *s)
 
 	if (s == NULL) return NULL;
 
-	for (i=_strlen(s)-1; i>=0; i++) {
+	for (i=_strlen(s)-1; i>=0; i--) {
 		if (s[i] == '\0' || s[i] == '\n' || s[i] == ' ') {
 			s[i] = '\0';
 		} else {
@@ -241,6 +241,7 @@ int get_file_svn_schedule(const char *s)
 	char cmd[MAX_CMD_LEN] = {0};
 	char buf[MAX_SCHED_LEN] = {0};
 
+	// TODO: need a cleaner way to access a file SVN details
 	snprintf(cmd, MAX_CMD_LEN, "svn info %s | grep Schedule: | awk '{print $2}'", s);
 
 	p = popen(cmd, "r");
@@ -314,11 +315,34 @@ char* ss_find_nth(int nth, const char* s, const char* ss)
 
 /*
  * description
- * Get th total count of a substring found in string
+ * Remove the '/' at the end of a path string
+ * 
+ * return
+ * The pointer to the 'p'
+ * NULL if failed
+ */
+char* rm_slash(char* p)
+{
+	int len;
+	
+	if (p == NULL) return NULL;
+
+	len = _strlen(p);
+
+	if (p[len-1] == '/') {
+		p[len-1] = '\0';
+	}
+
+	return p;
+}
+
+/*
+ * description
+ * Get the total count of a substring found in string
  *
  * return
  * Number of 'ss' found in 's'
- * -1: error case
+ * -1 if error
  */
 int ss_cnt(const char* s, const char* ss)
 {
@@ -358,129 +382,188 @@ int ss_cnt(const char* s, const char* ss)
  * Clean up the path string received by the user
  * 1. Remove initial './' part of string if it exists
  * 2. Add '/' to the end of the path string if file path is a directory
- * 3. Append string to the CWD(Current Working Directory, without svn root)
+ * 3. Append string to the current working directory (without SVN root)
+ * 4. Delete SVN root pathing if it exists
+ * 5. Delete starting '/'
  *
  * parameter
  * p = path string pointer
  * f = finalized path string pointer
  * f_sz = size of 'f'
  * 
+ * return
+ * pointer of finalized string on success
+ * NULL on fail
+ * 
  * note
  * added a new more bytes to handle compile error of buffer overflow
  */
-int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
+char* get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 {
 	struct stat fs;
-	char new_p1[MAX_PATH_LEN+4] = {0}; // new path buffer 1 
+	int p_len = 0;
+	char new_p[(MAX_PATH_LEN*2)+2] = {0}; // new 'p' buffer
 	int s_cnt = 0; // substring count
-	char **new_p2 = NULL; // new path array 2
-	int p_len = 0; // length of path
+	char **s_arr = NULL; // substrings split by '/' from 'new_p'
+
+	int *back_list = NULL; // substring index list that has back pathing ('../')
+	int b_cnt = 0; // amount of back pathing
+	int *del_list = NULL; // substring index list that has local pathing ('./')
+	int d_cnt = 0; // amount of local pathing
+
+	int root_len = 0;
+
 	int first = 0; // first character index of a file name
-	int *back_list = NULL;
-	int *del_list = NULL;
 	int i = 0;
 	int j = 0;
-	int d = 0;
-	int b = 0;
-	int flag = 0;
-	int ret = 0;
 
-	if (c == NULL || p == NULL || f == NULL || f_sz < 0) return -1;
+	int flag = 0;
+	int flag_has_root_path = 0;
+	int flag_has_local_path = 0;
+	int failed = 1;
+
+	if (c == NULL || p == NULL || f == NULL || f_sz <= 0) return NULL;
+
+	p_len = _strlen(p);
 
 	// check if path is valid
 	if (access(p, F_OK) != 0) {
 		if (get_file_svn_schedule(p) == SVN_SCHED_UNDEFINED) {
-			return -1;
+			goto END;
 		}
-		_strcpy(p, f, f_sz); // file is registered for schedule in SVN
-		return 0;
+
+		// File is registered for schedule in SVN, but does not exist
+		// So the following codes will always return error
+		// Better to just end the routine here
+		_strcpy(p, f, f_sz); 
+		failed = 0;
+		goto END;
 	}
 
 	// to check if 'p' is a directory
-	if (stat(p, &fs) != 0) return -1;
+	// if not '0', stat() function failed
+	if (stat(p, &fs) != 0) {
+		goto END;
+	}
+
+	// check if 'p' contains root pathing
+	root_len = _strlen(c->root_path);
+	if (_strncmp(c->root_path, p, root_len) == 0) {
+		flag_has_root_path = 1;
+	}
+
+	// check if 'p' contains local pathing
+	if (_strncmp(p, "./", _strlen("./")) == 0) {
+		flag_has_local_path = 1;
+	}
 
 	// if 'p' is a directory, but does not have the end '/', add it
+	// if 'p' contains root pathing, skip 'cwd' append
 	s_cnt = 0;
-	if (S_ISDIR(fs.st_mode) && p[_strlen(p)-1] != '/') {
-		snprintf(new_p1, sizeof(new_p1), "%s%s/", c->cwd, p);
+	if (S_ISDIR(fs.st_mode) && p[p_len-1] != '/') {
+		if (flag_has_root_path) {
+			snprintf(new_p, sizeof(new_p), "%s/", (p+root_len+1));
+		} else if (flag_has_local_path) {
+			snprintf(new_p, sizeof(new_p), "%s/", p);
+		} else {
+			snprintf(new_p, sizeof(new_p), "%s/%s/", c->cwd, p);
+		}
 	} else {
-		snprintf(new_p1, sizeof(new_p1), "%s%s", c->cwd, p);
+		if (flag_has_root_path) {
+			snprintf(new_p, sizeof(new_p), "%s", (p+root_len+1));
+		} else if (flag_has_local_path) {
+			snprintf(new_p, sizeof(new_p), "%s", p);
+		} else {
+			snprintf(new_p, sizeof(new_p), "%s/%s", c->cwd, p);
+		}
 		s_cnt = 1;
 	}
-	p_len = _strlen(new_p1);
+	d("pre-dissection path: [%s]", new_p);
+
+	// update 'p_len' to be the value of 'new_p'
+	p_len = _strlen(new_p);
 
 	// split all paths by '/'
-	s_cnt += ss_cnt(new_p1, "/"); 
+	s_cnt += ss_cnt(new_p, "/");
 	
-	new_p2 = (char**)malloc(sizeof(char*) * s_cnt);
-	if (new_p2 == NULL) {
-		d("malloc failed()");
-		ret = -1;
-		goto ERR;
+	// create an array for holding the substrings
+	s_arr = (char**)malloc(sizeof(char*) * s_cnt);
+	if (s_arr == NULL) {
+		errout("malloc() failed for s_arr");
+		goto END;
 	}
-	memset(new_p2, 0, sizeof(char*) * s_cnt);
+	memset(s_arr, 0, sizeof(char*) * s_cnt);
 
+	// deleteable substring index list
+	// max amount of index is the same as the total substring count
 	del_list = (int*)malloc(sizeof(int) * s_cnt);
 	if (del_list == NULL) {
-		d("malloc failed()");
-		ret = -1;
-		goto ERR;
+		errout("malloc() failed for del_list");
+		goto END;
 	}
 	memset(del_list, 0, sizeof(int) * s_cnt);
 
+	// backwards pathing substring index list
+	// max amount of index is the same as the total substring count
 	back_list = (int*)malloc(sizeof(int) * s_cnt);
 	if (back_list == NULL) {
-		d("malloc failed()");
-		ret = -1;
-		goto ERR;
+		errout("malloc() failed for back_list");
+		goto END;
 	}
 	memset(back_list, 0, sizeof(int) * s_cnt);
 
+	// initialize loop variables
 	first = 0;
-	b = 0;
-	d = 0;
+	b_cnt = 0;
+	d_cnt = 0;
+
+	// this function is to split up 'new_p' by the '/' found to 's_arr'
+	// and to get the index of all of the backward and local pathing substring
 	for (i=0; i<s_cnt; i++) {
-		new_p2[i] = (char*)malloc(sizeof(char) * MAX_FILENAME_LEN);
-		if (new_p2[i] == NULL) {
-			d("malloc failed()");
-			ret = -1;
-			goto ERR;
+		// allocate memory for a single substring
+		s_arr[i] = (char*)malloc(sizeof(char) * MAX_FILENAME_LEN);
+		if (s_arr[i] == NULL) {
+			d("malloc() failed for s_arr[%d]", i);
+			goto END;
 		}
 
-		// want to target the NULL character at the end
+		// target the NULL character at the end
 		for (j=first; j<=p_len; j++) {
-			if (new_p1[j] == '/') {
-				_strcpy(&new_p1[first], new_p2[i], (j-first)+1);
+			if (new_p[j] == '/') {
+				_strcpy(&new_p[first], s_arr[i], (j-first)+1);
 				first = j+1;
 				break;
-			} else if (new_p1[j] == '\0') {
-				_strcpy(&new_p1[first], new_p2[i], (j-first)+1);
-				first = -1; // end allocation loop
+			} else if (new_p[j] == '\0') {
+				_strcpy(&new_p[first], s_arr[i], (j-first)+1);
+				// end allocation loop
+				first = -1;
 				break;
 			}
 		}
 		
-		// end this loop, since we no longer need more files
+		// end this loop, since there are no more characters in 'new_p'
 		if (first < 0) break;
 
-		// check what is within the file names
-		if (_strfcmp(new_p2[i], "../") == 0) {
+		// calculate '.' and '..' pathing, and remove them if possible
+		if (_strfcmp(s_arr[i], "../") == 0) {
 			if (i == 0) {
-				d("unable to handle back pathing from root [%s]", new_p2[i]);
-				ret = -1;
-				goto ERR;
+				d("unable to handle back pathing from root [%s]", s_arr[i]);
+				goto END;
 			}
-			back_list[b++] = i;
-		} else if (_strfcmp(new_p2[i], "./") == 0) {
-			del_list[d++] = i;
+			back_list[b_cnt++] = i;
+		} else if (_strfcmp(s_arr[i], "./") == 0) {
+			del_list[d_cnt++] = i;
 		}
 	}
 
-	first = 0; // used as position pointer for 'f'
+	// used as position pointer for 'f'
+	first = 0;
+
+	// re-create 'new_p' to 'f', but with no backward or local pathing
 	for (i=0; i<s_cnt; i++) {
 		flag = 0;
 
-		for (j=0; j<d; j++) {
+		for (j=0; j<d_cnt; j++) {
 			if (i == del_list[j]) {
 				flag = 1;
 				break;
@@ -488,39 +571,42 @@ int get_clean_path(struct command_info* c, const char *p, char *f, size_t f_sz)
 		}
 		if (flag) continue;
 
-		for (j=0; j<b; j++) {
-			// checking the front word as well as current
-			if (i+1 == back_list[j] || i == back_list[j]) {
+		for (j=0; j<b_cnt; j++) {
+			// if the current index is either a '..' or the directory before it
+			// deleting them both does the path calculation
+			if (i == back_list[j] || i+1 == back_list[j]) {
 				flag = 1;
 				break;
 			}
 		}
 		if (flag) continue;
 
-		first += snprintf(f+first, f_sz-first, "%s", new_p2[i]);
+		first += snprintf(f+first, f_sz-first, "%s", s_arr[i]);
 	}
 
-	// see if it exists with SVN root path attached to it
-	snprintf(new_p1, sizeof(new_p1), "%s%s", c->svn_root_path, f);
-	d("root attached file path, for checks [%s]", new_p1);
+	if (flag_has_root_path) {
+		snprintf(new_p, sizeof(new_p), "%s", f);
+	} else {
+		snprintf(new_p, sizeof(new_p), "%s/%s", c->root_path, f);
+	}
+	d("finalzed path with svn root path [%s]", new_p);
 
-	// check if final path is valid
-	if (access(new_p1, F_OK) != 0) {
-		if (get_file_svn_schedule(new_p1) == SVN_SCHED_UNDEFINED) {
-			d("cleaned path does not exist, returning original [%s]", p);
-			_strcpy(p, f, f_sz); // file is registered for schedule in SVN
-			ret = 0;
-			goto ERR;
+	// check if 'f' exists with svn root path attached to it
+	if (access(new_p, F_OK) != 0) {
+		if (get_file_svn_schedule(new_p) == SVN_SCHED_UNDEFINED) {
+			goto END;
 		}
 	}
-ERR:
-	if (new_p2 != NULL) {
+
+	// if code reached this point, success
+	failed = 0;
+
+END:
+	if (s_arr != NULL) {
 		for (i=0; i<s_cnt; i++) {
-			if (new_p2[i] != NULL) {
-				free(new_p2[i]);
-			}
+			free(s_arr[i]);
 		}
-		free(new_p2);
+		free(s_arr);
 	}
 
 	if (del_list != NULL) {
@@ -531,5 +617,9 @@ ERR:
 		free(back_list);
 	}
 
-	return ret;
+	if (failed) {
+		return NULL;
+	} else {
+		return f;
+	}
 }

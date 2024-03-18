@@ -1,27 +1,26 @@
-/*
- * WARNING!
- * Before copying code to this file, make sure it's as perfect
- * as you can make it to be, since no debug logs should be
- * recorded here.
- * Eh, who cares?
- */
-
 #include <jansson.h>
 #include <global.h>
 #include <log.h>
 
-char* cut(char *c, size_t cs) {
-	int i = 3; // TODO: might have to change if the there are multiple status
-	char t[MAX_PATH_LEN] = {0};
+/*
+ * description
+ * For handling 'svn st' resulting paths, and getting only the path
+ * without the status indicating characters
+ */
+static char* svn_st_cut(char* s, size_t ss)
+{
+	int i;
+	char c[MAX_PATH_LEN] = {0};
 
-	for (i=0;c[i]!='\n';i++) {};
-	c[i] = '\0';
-	for (i=3;c[i]==' ';i++) {};
+	if (s == NULL || ss <= 0) return NULL;
 
-	snprintf(t, sizeof(t), "%s", &(c[i]));
-	snprintf(c, cs, "%s", t);
+	// find where the path starts
+	for (i=3; s[i]==' '; i++) {};
 
-	return c;
+	snprintf(c, sizeof(c), "%s", &(s[i]));
+	snprintf(s, ss, "%s", c);
+
+	return s;
 }
 
 /*
@@ -31,70 +30,83 @@ char* cut(char *c, size_t cs) {
 int _auto(struct command_info* c)
 {
 	int return_value = EXIT_NORMAL;
-	char cmd[MAX_CMD_LEN+MAX_PATH_LEN] = {0};
-	FILE *fp = NULL;
+
+	FILE *_file = NULL;
 	char path[MAX_PATH_LEN] = {0};
+	char cmd[MAX_CMD_LEN + MAX_PATH_LEN] = {0};
+
 	FILE *p = NULL;
-	char file[MAX_PATH_LEN] = {0};
-	char final_file[MAX_PATH_LEN] = {0};
-	int is_same = 0;
+	char target[MAX_PATH_LEN] = {0};
+	char final_path[MAX_PATH_LEN] = {0};
+
+	int flag = 0;
+
 	size_t index;
 	json_t *value;
 
 	if (c == NULL) {
-		d("critical error, 'c' is NULL");
-		return_value = EXIT_AUTO_FAILED;
+		errout("command_info is NULL");
+		return_value = EXIT_AUTO_ERROR;
 		goto EXIT;
 	}
 
 	d("starting 'auto' command handler");
 
-	// read target file
-	fp = fopen(c->auto_target_path, "r");
-	if (fp == NULL) {
-		return_value = EXIT_AUTO_FAILED;
+	// read auto target list file
+	_file = fopen(c->auto_path, "r");
+	if (_file == NULL) {
+		errout("failed to open file [%s]", c->auto_path);
+		errout("if file does not exist, run 'svm target'");
+		return_value = EXIT_AUTO_ERROR_FILE_OPEN_FAIL;
 		goto EXIT;
 	}
 
-	// run svn st based on that file
-	while (fgets(path, sizeof(path), fp) != NULL) {
+	// run 'svn st' on every entry in the auto target list file
+	while (fgets(path, sizeof(path), _file) != NULL) {
 		snprintf(cmd, sizeof(cmd), "svn st %s", path);
+		rm_whitespace(cmd);
 
 		p = popen(cmd, "r");
 		if (p == NULL) {
 			continue;
 		}
-		
-		while(fgets(file, sizeof(file), p) != NULL) {
-			cut(file, sizeof(file));
-			d("got file : [%s]", file);
-			if (get_clean_path(c, file, final_file, sizeof(final_file)) < 0) {
-				errout("failed to find valid file [%s]", file);
+
+		// read the result of the command
+		while(fgets(target, sizeof(target), p) != NULL) {
+			rm_whitespace(target);
+			svn_st_cut(target, sizeof(target));
+			d("rm_whitespace() & svn_st_cut() result [%s]", target);
+
+			if (get_clean_path(c, target, final_path, sizeof(final_path)) == NULL) {
+				errout("failed to find valid file, ignoring [%s]", target);
+				// no error on this case, in error causes are normally excusable
 				continue;
 			}
-			d("finalized file path [%s]", final_file);
+			d("found valid file [%s]", final_path);
 			
-			// check if 'final_file' has duplicates
-			is_same = 0;
-			json_array_foreach (c->j_files, index, value) {
-				if (_strfcmp(json_string_value(value), final_file) == 0) {
-					errout("found duplicate file path, skipping (%s)", final_file);
-					is_same = 1;
+			// now the same routine as 'add'
+			// check if 'final_path' has duplicates
+			flag = 0;
+			json_array_foreach (c->json_files, index, value) {
+				if (_strfcmp(json_string_value(value), final_path) == 0) {
+					errout(
+					"already have file [%s] inside group [%s], skipping",
+					final_path, c->grp_name);
+					flag = 1;
 					break;
 				}
 			}
 
-			if (is_same == 0) {
-				out("adding new file to group [%s] -> [%s]", c->group_name, final_file);
-				json_array_append_new(c->j_files, json_string(final_file));
+			// if the 'final_path' does not exist within the group, add it
+			if (flag == 0) {
+				out("adding [%s] to group [%s]", final_path, c->grp_name);
+				json_array_append_new(c->json_files, json_string(final_path));
 			}
 		}
 		pclose(p);
 	}
-	fclose(fp);
+	fclose(_file);
 
-	// add all M/D/A files to the group
-	
 EXIT:
 	return return_value;
 }

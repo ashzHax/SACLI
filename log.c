@@ -19,8 +19,10 @@ void out(const char* s, ...)
 	char log[MAX_LOG_SIZE] = {0};
 	int p = 0;
 
+	// changed color to default terminal color,
+	// since it's just a eye sore if the color doesn't match the terminal
 	p = snprintf(log, sizeof(log), "%s[%04d/%02d/%02d][%02d:%02d:%02d] ",
-			_F_BRIGHT_BLUE,
+			_RESET,
 			mt.tm_year+1900, mt.tm_mon+1, mt.tm_mday,
 			mt.tm_hour, mt.tm_min, mt.tm_sec);
 
