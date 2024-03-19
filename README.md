@@ -8,6 +8,7 @@ This project is to add advanced features to the `svn` command.
 The project itself won't be too fancy, since I'm just going to system call the `svn` command when I need to, rather than fork the thing (if it exists). 
   
 Project will be built based on the svn command version 1.14.1 (r1886195)  
+Using jansson library v2.14  
   
 # Usage
 **svm { options } \[ action \] { arguments }**
