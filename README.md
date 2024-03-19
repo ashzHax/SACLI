@@ -2,9 +2,9 @@
 Subversion Advanced Command Line Interface
   
 ### About this project
-I've been working for 4 years using Subversion, and the amount of time I wished the svn command to be more helpful is uncountable.  
+I've been working for 4 years using Subversion, and the amount of time I wished the `svn` command to be more helpful is uncountable.  
   
-This project is to add advanced features to the svn command.  
+This project is to add advanced features to the `svn` command.  
 The project itself won't be too fancy, since I'm just going to system call the `svn` command when I need to, rather than fork the thing (if it exists). 
   
 Project will be built based on the svn command version 1.14.1 (r1886195)  
