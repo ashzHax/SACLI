@@ -40,3 +40,10 @@ Project will be built based on the svn command version 1.14.1 (r1886195)
 | edit    | -g     | Name of the target commit group. (Default: 'default') |
 | clean   | -g     | Name of the target commit group. (Default: 'default') |
 | revert  | -g     | Name of the target commit group. (Default: 'default') |
+
+# Compiling
+Using gcc(11.4.0) and make(4.3).
+```
+make
+sudo make install
+```
