@@ -26,14 +26,14 @@ int _rollback(struct command_info* c)
 
 	if (c == NULL) {
 		errout("command_info is NULL");
-		return_value = EXIT_ROLLBACK_ERROR;
+		return_value = EXIT_RB_ERROR;
 		goto EXIT;
 	}
 
 	d("starting 'rollback' command handler");
 
 	if (c->act_arg_cnt < 2) {
-		return_value = EXIT_ROLLBACK_NOT_ENOUGH_ARGS;
+		return_value = EXIT_RB_NOT_ENOUGH_ARGS;
 		goto EXIT;
 	}
 
@@ -41,7 +41,7 @@ int _rollback(struct command_info* c)
 	cmd = (char*)malloc(size);
 	if (cmd == NULL) {
 		errout("malloc() failed");
-		return_value = EXIT_REVERT_ERROR;
+		return_value = EXIT_RB_ERROR;
 		goto EXIT;
 	}
 
@@ -54,7 +54,7 @@ int _rollback(struct command_info* c)
 	p = popen(cmd, "r");
 	if (p == NULL) {
 		errout("popen() failed");
-		return_value = EXIT_ROLLBACK_ERROR;
+		return_value = EXIT_RB_ERROR;
 		goto EXIT;
 	}
 
@@ -65,7 +65,7 @@ int _rollback(struct command_info* c)
 
 	if (revision > result_i || revision <= 0) {
 		errout("invalid repository revision value");
-		return_value = EXIT_ROLLBACK_ERROR_INVALID_REVISION;
+		return_value = EXIT_RB_ERROR_INVALID_REVISION;
 		goto EXIT;
 	}
 

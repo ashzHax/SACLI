@@ -122,7 +122,7 @@ int create_group(struct command_info *c)
 		alert("created new group [%s]", c->grp_name);
 	} else {
 		errout("unable to create new group [%s]", c->grp_name);
-		return EXIT_FAILED_TO_CREATE_GROUP;
+		return EXIT_ERROR_CREATE_GROUP_FAIL;
 	}
 
 	return EXIT_NORMAL;
@@ -170,7 +170,7 @@ int option_handle_group(struct command_info *c)
 		}
 		default: {
 			errout("invalid option for this operation [%s]", mode_list[c->mode]);
-			return EXIT_INVALID_OPTION;
+			return EXIT_ERROR_INVALID_OPTION;
 		}
 	}
 
@@ -231,7 +231,7 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 	d("action[%d] opt_cnt[%d] act_cnt[%d]", action, c->opt_arg_cnt, c->act_arg_cnt);
 
 	if (c->mode == MODE_INVALID) {
-		return EXIT_ACTION_NOT_FOUND;
+		return EXIT_ERROR_NO_ACTION;
 	}
 
 	c->opt_arg = (const char**)malloc(sizeof(const char*)*c->opt_arg_cnt);
@@ -271,7 +271,7 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 				// check if there are no more arguments
 				if (i >= c->opt_arg_cnt) {
 					// has '-g' option, but no group name was included
-					return EXIT_NO_GROUP_NAME;
+					ret = EXIT_ERROR_NO_GROUP_NAME;
 				}
 				
 				// skip to the next option argument, which is the group name
@@ -283,10 +283,10 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 
 			ret = option_handle_group(c);
 		} else {
-			errout("unknown option [%s] found", argv[i]);
+			errout("found unknown option [%s]", argv[i]);
 			ret = EXIT_ERROR_UNKNOWN_OPTION;
-
 		}
+	
 		if (ret < EXIT_NORMAL) {
 			return ret;
 		}
@@ -303,7 +303,12 @@ static int option_parse(struct command_info *c, int argc, char** argv)
 
 		if (c->json_grp == NULL) {
 			errout("unable to get group [default]");
-			return EXIT_ERROR_GROUP_GET_FAILED;
+			return EXIT_ERROR_GROUP_GET_FAIL;
+		}
+
+		if (c->json_files == NULL) {
+			errout("unable to get group's file list [default]");
+			return EXIT_ERROR_FILE_LIST_GET_FAIL;
 		}
 	}
 
@@ -323,7 +328,7 @@ static int get_svn_rd(char *buf, size_t len)
 	FILE *pp = NULL;
 
 	if (buf == NULL || len <= 0) {
-		return EXIT_ERROR;
+		return EXIT_ERROR_ROOT_PATH_GET_FAIL;
 	}
 
 	pp = popen("svn info 2> /dev/null | grep \"Working Copy Root Path\" | awk \'{print $5}\'", "r");
@@ -333,7 +338,7 @@ static int get_svn_rd(char *buf, size_t len)
 	}
 
 	if (_strlen(buf) <= 0) {
-		return EXIT_ERROR;
+		return EXIT_ERROR_ROOT_PATH_GET_FAIL;
 	}
 
 	rm_whitespace(buf);
@@ -355,7 +360,7 @@ static int create_config_file(struct command_info *c)
 	fp = fopen(c->config_path, "w+");
 	if (fp == NULL) {
 		errout("failed to open/create configuration file");
-		return EXIT_CONFIG_FILE_OPEN_FAIL;
+		return EXIT_ERROR_FOPEN_FAIL;
 	}
 
 	new = json_object();
@@ -399,8 +404,8 @@ static int get_config(struct command_info *c)
 	int ret = EXIT_NORMAL;
 	
 	// get configuration file path
-	if (c->config_path == NULL) {
-		errout("config_path is NULL (memory allocation failed)");
+	if (c == NULL) {
+		errout("command_info is NULL");
 		return EXIT_ERROR;
 	}
 
@@ -421,7 +426,7 @@ static int get_config(struct command_info *c)
 	fp = fopen(c->config_path, "r");
 	if (fp == NULL) {
 		errout("failed to open configuration file");
-		return EXIT_ERROR;
+		return EXIT_ERROR_FOPEN_FAIL;
 	}
 
 	// load configuration file as JSON
@@ -520,29 +525,28 @@ static int init(struct command_info *c)
 	c->mode = MODE_INVALID; // -1
 
 	// get root path
-	if (get_svn_rd(c->root_path, MAX_PATH_LEN) < EXIT_NORMAL) {
-		errout("svn root path get failed, (maybe not inside a svn repository?)");
-		ret = EXIT_SVN_PATH_GET_FAIL;
+	ret = get_svn_rd(c->root_path, MAX_PATH_LEN);
+	if (ret < EXIT_NORMAL) {
 		goto EXIT;
 	}
 	d("svn root path [%s]", c->root_path);
 
 	// get configuration file
-	if (get_config(c) < EXIT_NORMAL) {
-		ret = EXIT_CONFIG_GET_FAIL;
+	ret = get_config(c);
+	if (ret < EXIT_NORMAL) {
 		goto EXIT;
 	}
 
 	// get current working directory
 	if (get_cwd_no_root(c->cwd, MAX_PATH_LEN, c->root_path) == NULL) {
-		ret = EXIT_GET_CWD_NO_RD_FAIL;
+		ret = EXIT_ERROR_CWD_GET_FAIL;
 		goto EXIT;
 	}
 	d("current working directory [%s]", c->cwd);
 
 	// get auto target file
 	if (get_auto_target_file(c->auto_path, MAX_PATH_LEN, c->root_path) == NULL) {
-		ret = EXIT_AUTO_FILE_GET_FAIL;
+		ret = EXIT_ERROR_AUTO_FILE_GET_FAIL;
 		goto EXIT;
 	}
 	d("auto target list file path [%s]", c->auto_path);
@@ -605,7 +609,7 @@ int main(int argc, char** argv)
 	d("cmd.grp_name [%s]", cmd.grp_name);
 	d("cmd.auto_path [%s]", cmd.auto_path);
 
-	// note: never delete the json array on clean.
+	// note: never delete the json array on clean,
 	// just pop the data out
 	switch(cmd.mode) {
 		case MODE_ADD:
@@ -688,65 +692,130 @@ int main(int argc, char** argv)
 			exit_code = _info(&cmd);
 			break;
 		}
-		default:
-		{
-			help();
-			errout("no operation defined, ending program");
-			exit_code = EXIT_ACTION_NOT_FOUND;
-		}
 	}
 
 END_PROG:
 	deinit(&cmd);
 
 	switch(exit_code) {
-		case EXIT_AUTO_FILE_GET_FAIL:
-		case EXIT_CONFIG_GET_FAIL:
-		case EXIT_ADD_ERROR:
-		case EXIT_ADD_ERROR_INVALID_PATH:
-		case EXIT_ADD_ERROR_DUPLICATE_PATH:
-		case EXIT_REMOVE_ERROR_FILE_NOT_FOUND:
-		case EXIT_SVN_PATH_GET_FAIL: {
+		case EXIT_NORMAL: {
+			out("ending program");
 			break;
 		}
-		case EXIT_NO_GROUP_NAME: {
-			errout("no group name was indicated in your options. [T.-]");
+		case EXIT_ERROR: {
+			errout("error has occurred, ending program");
+			break;
+		}
+		case EXIT_ERROR_NO_ACTION: {
+			errout("no action found");
+			help();
+			break;
+		}
+		case EXIT_ERROR_ROOT_PATH_GET_FAIL: {
+			errout("failed to get svn root path");
+			errout("are you sure you are inside an svn repository?");
+			break;
+		}
+		case EXIT_ERROR_FOPEN_FAIL: {
+			break;
+		}
+		case EXIT_ERROR_CWD_GET_FAIL: {
+			errout("failed to get current working directory path");
+			break;
+		}
+		case EXIT_ERROR_AUTO_FILE_GET_FAIL: {
+			errout("failed to get auto target list file");
+			break;
+		}
+		case EXIT_ERROR_NO_GROUP_NAME: {
+			errout("no group name was specified");
 			help();
 			break;
 		}
 		case EXIT_ERROR_UNKNOWN_OPTION: {
-			errout("unknown option received. [o.O]");
 			help();
 			break;
 		}
-		case EXIT_INVALID_OPTION: {
-			errout("invalid option received. [o.O]");
-			help();
+		case EXIT_ERROR_GROUP_GET_FAIL: {
+			break;
+		}
+		case EXIT_ERROR_FILE_LIST_GET_FAIL: {
+			break;
+		}
+		case EXIT_ERROR_INVALID_OPTION: {
 			break;
 		}
 		case EXIT_HELP_PAGE: {
 			help();
+			exit_code = EXIT_NORMAL; // since this is technically not an error
+			break;
+		}
+		case EXIT_ERROR_CREATE_GROUP_FAIL: {
+			break;
+		}
+		case EXIT_ADD_ERROR:
+		case EXIT_ADD_ERROR_INVALID_PATH:
+		case EXIT_ADD_ERROR_DUPLICATE_PATH: {
+			break;
+		}
+		case EXIT_REMOVE_ERROR:
+		case EXIT_REMOVE_ERROR_FILE_NOT_FOUND:
+		case EXIT_REMOVE_ERROR_JSON_REMOVE_FAIL: {
+			break;
+		}
+		case EXIT_AUTO_ERROR:
+		case EXIT_AUTO_ERROR_FOPEN_FAIL: {
+			break;
+		}
+		case EXIT_CLEAR_ERROR: {
+			break;
+		}
+		case EXIT_COMMENT_ERROR:
+		case EXIT_COMMENT_ERROR_FOPEN_FAIL: {
+			break;
+		}
+		case EXIT_COMMIT_ERROR:
+		case EXIT_COMMIT_ERROR_FOPEN_FAIL: {
+			break;
+		}
+		case EXIT_EDIT_ERROR: {
+			break;
+		}
+		case EXIT_OW_ERROR:
+		case EXIT_OW_ERROR_GROUP_NOT_FOUND:
+		case EXIT_OW_ERROR_NO_SRC_FILES:
+		case EXIT_OW_ERROR_NO_COMMENT_FILE: {
+			break;
+		}
+		case EXIT_OW_ERROR_NOT_ENOUGH_ARGS: {
+			help();
+			errout("not enough arguments");
 			break;
 		}
 		case EXIT_OW_ERROR_TOO_MANY_ARGS: {
 			help();
+			errout("too many arguments");
 			break;
 		}
-		case EXIT_OW_ERROR_NOT_ENOUGH_ARGS:
-		case EXIT_ROLLBACK_NOT_ENOUGH_ARGS: {
+		case EXIT_REVERT_ERROR: {
+			break;
+		}
+		case EXIT_RB_ERROR:
+		case EXIT_RB_ERROR_INVALID_REVISION: {
+			break;
+		}
+		case EXIT_RB_NOT_ENOUGH_ARGS: {
 			help();
-			errout("not enough arguments to run this command");
+			errout("not enough arguments");
 			break;
 		}
-		case EXIT_ACTION_NOT_FOUND: {
-			help();
-			errout("no action found");
-			// TODO: delete 
-			exit_code = 0;
+		case EXIT_SHOW_ERROR: {
 			break;
 		}
-		case EXIT_NORMAL: {
-			out("ending program");
+		case EXIT_TARGET_ERROR: {
+			break;
+		}
+		case EXIT_INFO_ERROR: {
 			break;
 		}
 		default: {

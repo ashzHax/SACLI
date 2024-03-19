@@ -57,7 +57,7 @@ int _auto(struct command_info* c)
 	if (_file == NULL) {
 		errout("failed to open file [%s]", c->auto_path);
 		errout("if file does not exist, run 'svm target'");
-		return_value = EXIT_AUTO_ERROR_FILE_OPEN_FAIL;
+		return_value = EXIT_AUTO_ERROR_FOPEN_FAIL;
 		goto EXIT;
 	}
 

@@ -28,8 +28,8 @@ OBJ=\
     info.o \
     main.o
 
+# -DMODE_DEBUG
 DEFINES=-DPROG_NAME=$(TARGET) \
-		-DMODE_DEBUG \
 		-DAUTHOR=$(AUTHORS)
 
 all: create_dir copy_header install_lib $(TARGET)

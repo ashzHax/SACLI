@@ -241,7 +241,6 @@ int get_file_svn_schedule(const char *s)
 	char cmd[MAX_CMD_LEN] = {0};
 	char buf[MAX_SCHED_LEN] = {0};
 
-	// TODO: need a cleaner way to access a file SVN details
 	snprintf(cmd, MAX_CMD_LEN, "svn info %s | grep Schedule: | awk '{print $2}'", s);
 
 	p = popen(cmd, "r");

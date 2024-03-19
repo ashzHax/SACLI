@@ -56,12 +56,10 @@ int _overwrite(struct command_info* c)
 	
 	// argument check
 	if (c->act_arg_cnt == 0) {
-		errout("not enough arguments to run overwrite");
 		return_value = EXIT_OW_ERROR_NOT_ENOUGH_ARGS;
 		goto EXIT;
 	}
 	if (c->act_arg_cnt > 2) {
-		errout("too many arguments to run overwrite");
 		return_value = EXIT_OW_ERROR_TOO_MANY_ARGS;
 		goto EXIT;
 	}

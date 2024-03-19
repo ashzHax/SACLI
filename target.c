@@ -31,7 +31,9 @@ int _target(struct command_info* c)
 
 	// open target file
 	// which is now very simplified
+	// TODO: option to choose what editor the user wants to use
 	snprintf(cmd, size, "vi %s", c->auto_path);
+
 	d("running command: [%s]", cmd);
 	system(cmd);
 

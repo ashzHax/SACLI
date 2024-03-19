@@ -64,11 +64,11 @@ int _commit(struct command_info* c)
 	cl_path_fp = fopen(cl_path, "w");
 	if (cl_path_fp == NULL) {
 		errout("failed to open file [%s]", cl_path);
-		return_value = EXIT_COMMIT_ERROR_FILE_OPEN_FAIL;
+		return_value = EXIT_COMMIT_ERROR_FOPEN_FAIL;
 		goto EXIT;
 	}
 
-	alert("commiting the following files:");
+	out("commiting the following files:");
 
 	// get files from JSON list, and append them to commit list file
 	json_array_foreach (c->json_files, index, value) {
@@ -78,7 +78,7 @@ int _commit(struct command_info* c)
 		// run 'svn add' command if file is not scheduled for anything
 		// TODO: make this code run if option is given
 		if (get_file_svn_schedule(target) == SVN_SCHED_UNDEFINED) {
-			alert(" -> scheduling file to be added [%s]", target);
+			out(" -> scheduling file to be added [%s]", target);
 
 			snprintf(cmd, sizeof(cmd), "svn add %s > /dev/null", target); 
 			d("running command: [%s]", cmd);
@@ -115,11 +115,11 @@ int _commit(struct command_info* c)
 	co_path_fp = fopen(co_path, "r");
 	if (co_path_fp == NULL) {
 		errout("failed to open file [%s]", co_path);
-		return_value = EXIT_COMMIT_ERROR_FILE_OPEN_FAIL;
+		return_value = EXIT_COMMIT_ERROR_FOPEN_FAIL;
 		goto EXIT;
 	}
 
-	alert("commit message will be as the following:");
+	out("commit message will be as the following:");
 	while(fgets(co_read, sizeof(co_read), co_path_fp) != NULL) {
 		out("%s", rm_whitespace(co_read));
 	}
@@ -138,6 +138,8 @@ int _commit(struct command_info* c)
 	snprintf(cmd, sizeof(cmd), "svn commit -F %s --targets %s", co_path, cl_path); 
 	d("running command: [%s]", cmd);
 	system(cmd);
+
+	out("committed group [%s]", c->grp_name);
 
 EXIT:
 	if (cl_path) {

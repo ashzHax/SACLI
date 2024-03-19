@@ -69,15 +69,16 @@ int _comment(struct command_info* c)
 			fclose(comment_file);
 		} else {
 			errout("failed to open comment file [%s]", path);
-			return_value = EXIT_COMMENT_ERROR_FILE_OPEN_FAIL;
+			return_value = EXIT_COMMENT_ERROR_FOPEN_FAIL;
 			goto EXIT;
 		}
 	} else {
 		// only when there are no arguments, call the editor
 		// if you are using svn (boomer) and not using vim (boomer technology)
 		// you ain't a real human being
-		// TODO: option to choose what editor the user wants to use?
+		// TODO: option to choose what editor the user wants to use
 		snprintf(cmd, p_size, "vim %s", path); 
+
 		d("running command: [%s]", cmd);
 		system(cmd);
 	}

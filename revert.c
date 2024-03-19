@@ -38,7 +38,7 @@ int _revert(struct command_info* c)
 		system(cmd);
 	}
 
-	alert("reverted all files inside group [%s]", c->grp_name);
+	out("reverted all files inside group [%s]", c->grp_name);
 
 EXIT:
 	if (cmd) {

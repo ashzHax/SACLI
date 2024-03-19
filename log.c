@@ -14,17 +14,23 @@
 void out(const char* s, ...)
 {
 	va_list list;
+#if defined(MODE_DEBUG)
 	time_t t = time(NULL);
 	struct tm mt = *localtime(&t);
+#endif // defined(MODE_DEBUG)
 	char log[MAX_LOG_SIZE] = {0};
 	int p = 0;
 
 	// changed color to default terminal color,
 	// since it's just a eye sore if the color doesn't match the terminal
+#if defined(MODE_DEBUG)
 	p = snprintf(log, sizeof(log), "%s[%04d/%02d/%02d][%02d:%02d:%02d] ",
 			_RESET,
 			mt.tm_year+1900, mt.tm_mon+1, mt.tm_mday,
 			mt.tm_hour, mt.tm_min, mt.tm_sec);
+#else
+	p = snprintf(log, sizeof(log), "%s", _RESET);
+#endif // defined(MODE_DEBUG)
 
 	va_start(list, s);
 	vsnprintf(log+p, sizeof(log)-p, s, list);
@@ -42,15 +48,21 @@ void out(const char* s, ...)
 void errout(const char* s, ...)
 {
 	va_list list;
+#if defined(MODE_DEBUG)
 	time_t t = time(NULL);
 	struct tm mt = *localtime(&t);
+#endif // defined(MODE_DEBUG)
 	char log[MAX_LOG_SIZE] = {0};
 	int p = 0;
 
+#if defined(MODE_DEBUG)
 	p = snprintf(log, sizeof(log), "%s[%04d/%02d/%02d][%02d:%02d:%02d] ",
 			_F_BRIGHT_RED,
 			mt.tm_year+1900, mt.tm_mon+1, mt.tm_mday,
 			mt.tm_hour, mt.tm_min, mt.tm_sec);
+#else
+	p = snprintf(log, sizeof(log), "%s", _F_BRIGHT_RED);
+#endif // defined(MODE_DEBUG)
 
 	va_start(list, s);
 	vsnprintf(log+p, sizeof(log)-p, s, list);

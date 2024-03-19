@@ -27,7 +27,9 @@ int _edit(struct command_info* c)
 	json_array_foreach (c->json_files, index, value) {
 		s = json_string_value(value);
 		if (s) {
-			snprintf(cmd, sizeof(cmd), "vi %s", s);
+			// TODO: option to choose what editor the user wants to use
+			snprintf(cmd, sizeof(cmd), "vim %s", s);
+
 			d("running command: [%s]", cmd);
 			system(cmd);
 		} else {
